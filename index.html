@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ДЕКОДЕР — Анализ систем</title>
+  <meta name="description" content="Логическая игра-головоломка. Разгадай пароль, используй логику Быков и Коров, успей до истечения времени." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="ДЕКОДЕР — Анализ систем" />
+  <meta property="og:description" content="Логическая игра-головоломка. Разгадай пароль, используй логику Быков и Коров, успей до истечения времени!" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css?v=56" />
+  <link rel="stylesheet" href="css/menu.css?v=54" />
+  <link rel="stylesheet" href="css/game.css?v=54" />
+  <link rel="stylesheet" href="css/animations.css?v=54" />
+  <link rel="stylesheet" href="css/test-mode.css?v=54" />
+
+  <style>
+    /* 
+      LIQUID GLASS EFFECT (SVG DISPLACEMENT)
+      We must place this in the HTML file so that url(#displacementFilter) 
+      correctly resolves to the inline SVG in this document. If placed in an external CSS,
+      Chrome/Firefox will look for the ID inside the CSS file and fail.
+    */
+    @supports not (hanging-punctuation:first) {
+      /* SVG displacement ("жидкое стекло") — только на десктопе.
+         На мобильных экранах url(#displacementFilter) не поддерживается
+         стабильно в Android Chrome и вызывает артефакты (пустые панели,
+         неверные цвета). Медиазапрос min-width: 769px полностью исключает
+         этот эффект на телефонах — мобильный блок ниже берёт управление. */
+      @media (min-width: 769px) {
+        .glass-panel, .liquid-glass, .menu-stats, .menu-card, .bottom-nav, .overlay-box,
+        .boot-terminal-box, .ref-balance-card, .friends-card, .shop-tabs, .tasks-tabs, .leaderboard-tabs,
+        .rule-item, .level-type-card, .reward-card, .shop-item-card, .booster-toolbar,
+        .inventory-active-box, .game-floor-header, .level-card, .btn-exit, .toast,
+        .nav-indicator, .shop-tab-indicator, .tasks-tab-indicator, .booster-btn,
+        .lb-item-card, .inventory-item-row {
+          backdrop-filter: url(#displacementFilter) blur(3px) saturate(140%) !important;
+          -webkit-backdrop-filter: url(#displacementFilter) blur(3px) saturate(140%) !important;
+        }
+      }
+    }
+
+
+
+    /*
+      MOBILE LIQUID GLASS — НОВЫЙ ПОДХОД (v50)
+
+      Проблема: на телефонах (особенно в Android/MAX webview) backdrop-filter
+      работает нестабильно. Старые правила использовали ТЁМНЫЙ фон
+      (rgba(10,10,10,0.45)) в расчёте на backdrop-filter — когда фильтр не
+      срабатывал, панели оставались просто тёмными → «всё чёрное».
+
+      Решение: используем СВЕТЛЫЙ полупрозрачный фон (белая «плёнка»). Такой
+      фон даёт эффект светлого матового стекла ДАЖE без backdrop-filter, поэтому
+      на телефоне выглядит так же светло и «стеклянно», как на ПК. backdrop-filter
+      оставлен как улучшение для устройств, которые его поддерживают.
+    */
+    @media (max-width: 768px) {
+      .glass-panel, .liquid-glass, .menu-stats, .menu-card, .overlay-box,
+      .boot-terminal-box, .ref-balance-card, .friends-card, .shop-tabs, .tasks-tabs, .leaderboard-tabs,
+      .rule-item, .level-type-card, .reward-card, .booster-toolbar,
+      .game-floor-header, .level-card, .btn-exit, .toast,
+      .shop-item-card, .inventory-item-row {
+        backdrop-filter: blur(18px) saturate(160%) !important;
+        -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+        background: rgba(255, 255, 255, 0.11) !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.30) !important;
+        border-left: 1px solid rgba(255, 255, 255, 0.24) !important;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.25),
+          0 8px 28px rgba(0, 0, 0, 0.35) !important;
+        backface-visibility: hidden !important;
+        -webkit-backface-visibility: hidden !important;
+      }
+
+      /* Shop / task cards: more opaque background so they're clearly visible even without blur */
+      .shop-item-card {
+        background: rgba(255, 255, 255, 0.22) !important;
+      }
+
+      /* Bottom nav: светлое матовое стекло (мобильные) */
+      .bottom-nav {
+        backdrop-filter: blur(28px) saturate(160%) brightness(1.1) !important;
+        -webkit-backdrop-filter: blur(28px) saturate(160%) brightness(1.1) !important;
+        background: rgba(255, 255, 255, 0.14) !important;
+        border: 1px solid rgba(255, 255, 255, 0.24) !important;
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,0.16) inset,
+          0 1.5px 0 rgba(255,255,255,0.40) inset,
+          0 -1px 0 rgba(0,0,0,0.12) inset,
+          0 8px 32px rgba(0,0,0,0.28) !important;
+        backface-visibility: hidden !important;
+        -webkit-backface-visibility: hidden !important;
+      }
+
+      /* Leaderboard cells: рамка только в модалке (игры), в меню — без рамок */
+      .lb-item-card, .lb-modal-body .lb-row {
+        background: rgba(255, 255, 255, 0.10) !important;
+        border: 1px solid rgba(255, 255, 255, 0.20) !important;
+        backface-visibility: hidden !important;
+        -webkit-backface-visibility: hidden !important;
+      }
+      /* Меню-рейтинг — строки без фона и рамки */
+      #leaderboard-list .lb-row {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+
+      /* Brighter highlights for active tab indicators for high visibility and contrast */
+      .nav-indicator, .shop-tab-indicator, .tasks-tab-indicator {
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        background: rgba(255, 255, 255, 0.20) !important;
+        border: 1px solid rgba(255, 255, 255, 0.34) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+        backface-visibility: hidden !important;
+        -webkit-backface-visibility: hidden !important;
+      }
+
+      /* Booster buttons and inventory active list items */
+      .booster-btn, .inventory-active-box {
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        background: rgba(255, 255, 255, 0.13) !important;
+        border: 1px solid rgba(255, 255, 255, 0.22) !important;
+        backface-visibility: hidden !important;
+        -webkit-backface-visibility: hidden !important;
+      }
+
+      /* Ячейки ввода: ярко видимы на телефоне (раньше сливались с чёрным) */
+      .input-cell {
+        background: rgba(255, 255, 255, 0.09) !important;
+        border: 1.5px solid rgba(255, 255, 255, 0.28) !important;
+        border-bottom: 1.5px solid rgba(255, 255, 255, 0.40) !important;
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+      }
+      .input-cell:focus-within {
+        border-color: rgba(255, 255, 255, 0.7) !important;
+        background: rgba(255, 255, 255, 0.16) !important;
+      }
+      .input-cell.has-value {
+        border-color: rgba(255, 255, 255, 0.45) !important;
+      }
+
+      /* Виртуальная клавиатура — светлые кнопки на телефоне */
+      .virtual-keypad .keypad-btn {
+        background: rgba(255, 255, 255, 0.12) !important;
+        border: 1px solid rgba(255, 255, 255, 0.20) !important;
+        color: #ffffff !important;
+      }
+
+      /* Guarantee high contrast and readability on mobile */
+      .card-title, .stat-value, .nav-label, .shop-item-name, .price-value, .friends-title, .shop-title, .ref-balance-value, .friend-name, .lb-item-name, .lb-my-name {
+        color: #ffffff !important;
+      }
+
+      .btn--primary {
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Boot v2: система «играет сама в себя» — подбирает пароль по правилам
+       Быков и Коров теми же ячейками и подсветкой, что и в игре -->
+  <div id="boot-screen" class="boot-screen">
+    <div class="boot2-grid"></div>
+    <div class="boot2-glow"></div>
+    <div class="boot2-rain" id="boot-rain"></div>
+    <div class="boot2-scanline"></div>
+
+    <div class="boot2-stage">
+      <div class="boot2-wordmark">
+        <span class="boot2-bracket">[</span><span class="boot2-word">ДЕКОДЕР</span><span class="boot2-bracket">]</span>
+      </div>
+      <div class="boot2-tagline">Система подбора паролей</div>
+
+      <div class="boot2-cells" id="boot-cells"></div>
+      <div class="boot2-history" id="boot-history"></div>
+
+      <div class="boot2-progress">
+        <div class="boot2-meta">
+          <span id="boot-status">Инициализация</span>
+          <span class="boot2-pct" id="boot-percent">0%</span>
+        </div>
+        <div class="boot2-track"><div class="boot2-fill" id="boot-fill"></div></div>
+        <div class="boot2-term">
+          <span class="boot2-dot"></span>
+          <span id="boot-logs">boot: подключение к ядру…</span>
+          <span class="boot2-caret"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="elevator-shaft">
+    <canvas id="matrix-canvas"></canvas>
+    <div id="radial-bg"></div>
+
+    <div id="screen-menu" class="screen screen--active">
+      <div class="menu-container">
+
+        <div class="menu-logo">
+          <div class="logo-icon">
+            <span class="logo-bracket">[</span>
+            <span class="logo-text">DEC</span>
+            <span class="logo-bracket">]</span>
+          </div>
+          <h1 class="menu-title" data-text="ДЕКОДЕР">ДЕКОДЕР</h1>
+          <p class="menu-subtitle">// Система подбора паролей v2.0</p>
+          <div class="menu-rank-badge" id="menu-rank-badge">[Скрипт-кидди]</div>
+        </div>
+
+        <!-- Статистика по играм с вкладками режимов -->
+        <div class="menu-stats-card">
+          <div class="menu-mode-tabs">
+            <button class="menu-mode-tab active" id="menu-mode-tab-classic">КЛАССИКА</button>
+            <button class="menu-mode-tab" id="menu-mode-tab-stream">ПОТОК</button>
+            <button class="menu-mode-tab" id="menu-mode-tab-dice">АД КУБИКОВ</button>
+          </div>
+          <!-- Классический режим -->
+          <div class="menu-stats menu-stats-panel" id="menu-stats-classic">
+            <div class="stat-item">
+              <span class="stat-label">РЕКОРД</span>
+              <span class="stat-value" style="display:flex; align-items:flex-start; justify-content:center; gap:10px;">
+                <span style="display:flex; flex-direction:column; align-items:center; line-height:1;">
+                  <span id="menu-best-score" style="font-size:18px;">0</span>
+                  <span style="font-size:8px; font-weight:600; color:rgba(255,255,255,0.4); letter-spacing:0.08em; margin-top:4px;">ОЧКИ</span>
+                </span>
+                <span style="font-size:18px; opacity:0.2; font-weight:400;">/</span>
+                <span style="display:flex; flex-direction:column; align-items:center; line-height:1;">
+                  <span id="menu-levels-cleared" style="font-size:18px;">0</span>
+                  <span style="font-size:8px; font-weight:600; color:rgba(255,255,255,0.4); letter-spacing:0.08em; margin-top:4px;">УР.</span>
+                </span>
+              </span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <span class="stat-label" style="display: flex; align-items: center; gap: 4px;">
+                <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;color:var(--c-standard);filter:drop-shadow(0 0 3px rgba(88,232,154,0.55));" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                  <path d="M5 9l7-6 7 6-7 12L5 9z"/>
+                  <path d="M5 9h14M10 3l-2 6 4 12 4-12-2-6"/>
+                </svg>
+                БАЛАНС DCDR
+              </span>
+              <span class="stat-value" id="menu-coins" style="color: var(--c-standard);">0</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <span class="stat-label" style="display: flex; align-items: center; gap: 4px;">
+                <svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px;color:var(--c-bonus);filter:drop-shadow(0 0 3px rgba(255,201,77,0.5));" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M12 2l2.5 7H22l-6 4.5 2.3 7L12 17 5.7 20.5 8 13.5 2 9h7.5z"/>
+                </svg>
+                СЕЗОН
+              </span>
+              <span class="stat-value" id="menu-season-points" style="color: var(--c-bonus);">0</span>
+            </div>
+          </div>
+          <!-- Режим Поток -->
+          <div class="menu-stats menu-stats-panel hidden" id="menu-stats-stream">
+            <div class="stat-item">
+              <span class="stat-label">РЕКОРД</span>
+              <span class="stat-value" id="menu-stream-best">0</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <span class="stat-label">РЕЖИМ</span>
+              <span class="stat-value" style="font-size: 12px; color: var(--c-standard);">ПОТОК</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <span class="stat-label" style="display: flex; align-items: center; gap: 4px;">
+                <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;color:var(--c-standard);filter:drop-shadow(0 0 3px rgba(88,232,154,0.55));" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                  <path d="M5 9l7-6 7 6-7 12L5 9z"/>
+                  <path d="M5 9h14M10 3l-2 6 4 12 4-12-2-6"/>
+                </svg>
+                DCDR
+              </span>
+              <span class="stat-value" id="menu-coins-stream">0</span>
+            </div>
+          </div>
+          <!-- Режим Ад Кубиков -->
+          <div class="menu-stats menu-stats-panel hidden" id="menu-stats-dice">
+            <div class="stat-item">
+              <span class="stat-label">РЕКОРД</span>
+              <span class="stat-value" id="menu-dice-best">0</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <span class="stat-label">РЕЖИМ</span>
+              <span class="stat-value" style="font-size: 12px; color: #ff6b4a;">АД КУБИКОВ</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <span class="stat-label" style="display: flex; align-items: center; gap: 4px;">
+                <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;color:var(--c-standard);filter:drop-shadow(0 0 3px rgba(88,232,154,0.55));" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                  <path d="M5 9l7-6 7 6-7 12L5 9z"/>
+                  <path d="M5 9h14M10 3l-2 6 4 12 4-12-2-6"/>
+                </svg>
+                DCDR
+              </span>
+              <span class="stat-value" id="menu-coins-dice">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-buttons">
+
+          <button id="btn-start" class="menu-card menu-card--play">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M8 5.14v14l11-7-11-7z" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="card-body">
+              <span class="card-title">Играть</span>
+              <span class="card-subtitle">Тебя ждёт много режимов!</span>
+            </div>
+            <span class="card-arrow">→</span>
+          </button>
+
+          <button id="btn-rules" class="menu-card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M12 8v1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M12 11v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="card-body">
+              <span class="card-title">Правила</span>
+              <span class="card-subtitle">Как играть</span>
+            </div>
+          </button>
+
+          <button id="btn-leaderboard" class="menu-card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="card-body">
+              <span class="card-title">Рейтинг</span>
+              <span class="card-subtitle">Топ хакеров</span>
+            </div>
+          </button>
+
+        </div>
+
+        <div class="menu-footer">
+          <span>ГОТОВ К ДЕКОДИРОВАНИЮ...</span>
+          <span class="cursor-blink">_</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════ GAMES SCREEN ═══════════ -->
+    <div id="screen-games" class="screen">
+      <div class="games-container">
+
+        <div class="games-header">
+          <h2 class="games-title">// РЕЖИМЫ ИГРЫ</h2>
+          <p class="games-subtitle">Выбери режим и начни взлом</p>
+        </div>
+
+        <!-- Классический режим -->
+        <button class="game-mode-card" id="btn-mode-classic">
+          <div class="game-mode-top">
+            <div class="game-mode-icon">
+              <svg viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="7" width="20" height="13" rx="3" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M8 11v4M6 13h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <circle cx="15" cy="12" r="1" fill="currentColor"/>
+                <circle cx="18" cy="14" r="1" fill="currentColor"/>
+                <path d="M9 4h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span class="game-mode-tag game-mode-tag--active">● ДОСТУПЕН</span>
+          </div>
+          <div class="game-mode-name">КЛАССИЧЕСКИЙ</div>
+          <div class="game-mode-desc">Взламывай числовые шифры с помощью логики быков и коров</div>
+          <div class="game-mode-stats lb-trigger" id="btn-lb-classic">
+            <div class="game-mode-stat-item">
+              <span class="game-mode-stat-label">РЕКОРД <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:9px;height:9px;opacity:0.45;vertical-align:middle;margin-left:2px;"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg></span>
+              <span class="game-mode-stat-value" id="games-best-score">0</span>
+            </div>
+            <div class="game-mode-stat-div"></div>
+            <div class="game-mode-stat-item">
+              <span class="game-mode-stat-label">РЕК. РЕШЕНИЙ</span>
+              <span class="game-mode-stat-value" id="games-levels-cleared">0</span>
+            </div>
+          </div>
+        </button>
+
+        <!-- Режим ПОТОК -->
+        <button class="game-mode-card game-mode-card--stream" id="btn-mode-stream">
+          <div class="game-mode-top">
+            <div class="game-mode-icon game-mode-icon--stream">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="game-mode-tag game-mode-tag--active">● ДОСТУПЕН</span>
+          </div>
+          <div class="game-mode-name">ПОТОК</div>
+          <div class="game-mode-desc">Бесконечный поток сегментов — 3 жизни, нарастающий темп и комбо-множитель</div>
+          <div class="game-mode-stats lb-trigger" id="btn-lb-stream" style="flex:1;">
+            <div class="game-mode-stat-item">
+              <span class="game-mode-stat-label">РЕКОРД <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:9px;height:9px;opacity:0.45;vertical-align:middle;margin-left:2px;"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg></span>
+              <span class="game-mode-stat-value" id="stream-best-score">0</span>
+            </div>
+          </div>
+        </button>
+
+        <!-- Режим АД КУБИКОВ -->
+        <button class="game-mode-card game-mode-card--dice" id="btn-mode-dice">
+          <div class="game-mode-top">
+            <div class="game-mode-icon game-mode-icon--dice">
+              <svg viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" stroke-width="1.7"/>
+                <circle cx="8" cy="8" r="1.4" fill="currentColor"/>
+                <circle cx="16" cy="8" r="1.4" fill="currentColor"/>
+                <circle cx="8" cy="16" r="1.4" fill="currentColor"/>
+                <circle cx="16" cy="16" r="1.4" fill="currentColor"/>
+                <circle cx="12" cy="12" r="1.4" fill="currentColor"/>
+              </svg>
+            </div>
+            <span class="game-mode-tag game-mode-tag--active">● ДОСТУПЕН</span>
+          </div>
+          <div class="game-mode-name">АД КУБИКОВ</div>
+          <div class="game-mode-desc">Только кубики — 3 жизни, чистая удача и нарастающий хаос</div>
+          <div class="game-mode-stats lb-trigger" id="btn-lb-dice" style="flex:1;">
+            <div class="game-mode-stat-item">
+              <span class="game-mode-stat-label">РЕКОРД <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:9px;height:9px;opacity:0.45;vertical-align:middle;margin-left:2px;"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg></span>
+              <span class="game-mode-stat-value" id="dice-best-score">0</span>
+            </div>
+          </div>
+        </button>
+
+        <!-- Режим ПАРОЛЬ ДНЯ -->
+        <button class="game-mode-card game-mode-card--daily" id="btn-mode-daily">
+          <div class="game-mode-top">
+            <div class="game-mode-icon game-mode-icon--daily">
+              <svg viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <text x="12" y="19" text-anchor="middle" font-family="monospace" font-size="7" font-weight="700" fill="currentColor">DAY</text>
+              </svg>
+            </div>
+            <span class="game-mode-tag game-mode-tag--active" style="color: #b36dff; background: rgba(179,109,255,0.1); border-color: rgba(179,109,255,0.25);">◈ ЕЖЕДНЕВНЫЙ</span>
+          </div>
+          <div class="game-mode-name" style="color: #b36dff;">ПАРОЛЬ ДНЯ</div>
+          <div class="game-mode-desc">Один общий пароль на всех. Одна попытка. Общий рейтинг взломщиков</div>
+          <div class="game-mode-stats" style="margin-top: auto;">
+            <div class="game-mode-stat-item">
+              <span class="game-mode-stat-label">СТАТУС</span>
+              <span class="game-mode-stat-value" id="daily-status-label" style="font-size: 11px; color: #b36dff;">ГОТОВ</span>
+            </div>
+          </div>
+        </button>
+
+        <!-- Режим ТРЕНИРОВКИ -->
+        <button class="game-mode-card game-mode-card--practice" id="btn-mode-practice">
+          <div class="game-mode-top">
+            <div class="game-mode-icon game-mode-icon--practice">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M12 7v5l3 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <path d="M9 3.5C6.5 4.5 4.5 6.5 3.5 9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="2 2"/>
+              </svg>
+            </div>
+            <span class="game-mode-tag" style="color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.12);">◎ БЕЗ ТАЙМЕРА</span>
+          </div>
+          <div class="game-mode-name" style="color: rgba(255,255,255,0.75);">ТРЕНИРОВКА</div>
+          <div class="game-mode-desc">Без таймера и без рейтинга. Отработай стратегию в комфортном темпе</div>
+          <div class="game-mode-stats" style="margin-top: auto;">
+            <div class="game-mode-stat-item">
+              <span class="game-mode-stat-label">МОНЕТЫ</span>
+              <span class="game-mode-stat-value" style="color: rgba(255,255,255,0.4);">не начисляются</span>
+            </div>
+          </div>
+        </button>
+
+        <!-- Режим ТЕСТ (карта агента + карточные бустеры) -->
+        <button class="game-mode-card game-mode-card--test" id="btn-mode-test">
+          <div class="game-mode-top">
+            <div class="game-mode-icon game-mode-icon--test">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M9 3v16M15 5v16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <circle cx="12" cy="11" r="1.4" fill="currentColor"/>
+              </svg>
+            </div>
+            <span class="game-mode-tag game-mode-tag--active" style="color: #58e89a; background: rgba(88,232,154,0.1); border-color: rgba(88,232,154,0.25);">◆ ОПЕРАЦИЯ</span>
+          </div>
+          <div class="game-mode-name" style="color: #58e89a;">ДЕШИФРОВЩИК</div>
+          <div class="game-mode-desc">Операция «Дешифровщик»: карта агента, взлом локаций с мини-боссами. Собирай и комбинируй карточки-бустеры</div>
+          <div class="game-mode-stats" style="margin-top: auto;">
+            <div class="game-mode-stat-item">
+              <span class="game-mode-stat-label">ВЗЛОМАНО</span>
+              <span class="game-mode-stat-value" id="test-mode-cleared" style="color: #58e89a;">0</span>
+            </div>
+            <div class="game-mode-stat-div"></div>
+            <div class="game-mode-stat-item">
+              <span class="game-mode-stat-label">КАРТОЧЕК</span>
+              <span class="game-mode-stat-value" id="test-mode-cards" style="color: #58e89a;">0</span>
+            </div>
+          </div>
+        </button>
+
+      </div>
+
+
+    </div>
+
+    <!-- ══════════ ПАРОЛЬ ДНЯ ══════════ -->
+    <div id="screen-daily" class="screen">
+
+      <!-- HUD -->
+      <div class="game-floor-header">
+        <div class="floor-tag">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:800; color:#b36dff; letter-spacing:0.04em;">Пароль дня</span>
+        </div>
+        <div class="floor-meta">
+          <div class="floor-attempts">
+            <span class="floor-attempts-label">ПОПЫТКИ</span>
+            <span id="daily-attempts-left" class="floor-attempts-value">2</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-center">
+
+        <!-- Статус-баннер -->
+        <div id="daily-status-banner" style="display:none;">
+          <div class="level-type-banner" style="border-color:rgba(179,109,255,0.5); background:rgba(179,109,255,0.08);">
+            <span id="daily-status-text" style="color:#b36dff;"></span>
+          </div>
+          <div id="daily-answer-reveal" style="display:none; font-family:'JetBrains Mono',monospace; font-size:12px; color:rgba(255,255,255,0.45); text-align:center; margin-top:6px;"></div>
+        </div>
+
+        <div class="level-card">
+          <!-- Ячейки ввода -->
+          <div class="input-area">
+            <div class="input-cells" id="daily-cells">
+              <div class="input-cell" data-index="0"><span class="daily-cell-display"></span><input class="daily-cell" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" tabindex="0"></div>
+              <div class="input-cell" data-index="1"><span class="daily-cell-display"></span><input class="daily-cell" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" tabindex="0"></div>
+              <div class="input-cell" data-index="2"><span class="daily-cell-display"></span><input class="daily-cell" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" tabindex="0"></div>
+              <div class="input-cell" data-index="3"><span class="daily-cell-display"></span><input class="daily-cell" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" tabindex="0"></div>
+            </div>
+            <div id="daily-keypad" class="virtual-keypad hidden">
+              <div class="keypad-row">
+                <button type="button" class="keypad-btn" data-key="1">1</button>
+                <button type="button" class="keypad-btn" data-key="2">2</button>
+                <button type="button" class="keypad-btn" data-key="3">3</button>
+              </div>
+              <div class="keypad-row">
+                <button type="button" class="keypad-btn" data-key="4">4</button>
+                <button type="button" class="keypad-btn" data-key="5">5</button>
+                <button type="button" class="keypad-btn" data-key="6">6</button>
+              </div>
+              <div class="keypad-row">
+                <button type="button" class="keypad-btn" data-key="7">7</button>
+                <button type="button" class="keypad-btn" data-key="8">8</button>
+                <button type="button" class="keypad-btn" data-key="9">9</button>
+              </div>
+              <div class="keypad-row">
+                <button type="button" class="keypad-btn keypad-btn--clear" data-key="clear">C</button>
+                <button type="button" class="keypad-btn" data-key="0">0</button>
+                <button type="button" class="keypad-btn keypad-btn--backspace" data-key="backspace">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;display:block;margin:0 auto;">
+                    <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/>
+                    <line x1="18" y1="9" x2="12" y2="15"/>
+                    <line x1="12" y1="9" x2="18" y2="15"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <button id="btn-daily-submit" class="btn btn--primary btn--submit" style="margin-top:12px; background:linear-gradient(135deg,#7c3aed,#b36dff); border:none; width:100%;">
+              <span>ВЗЛОМАТЬ</span>
+              <span class="btn-shortcut">↵ Enter</span>
+            </button>
+          </div>
+
+          <!-- История попыток -->
+          <div class="history-area">
+            <div id="daily-history-list" class="history-list"></div>
+            <div id="daily-history-empty" class="history-empty-hint">// ИСТОРИЯ ПУСТА</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ══════════ ТЕСТ — КАРТА АГЕНТА ══════════ -->
+    <div id="screen-test" class="screen">
+
+      <!-- ─── ВИД: КАРТА ─── -->
+      <div id="test-map-view" class="test-view">
+        <div class="test-map-header">
+          <button id="btn-test-back" class="test-back-btn" aria-label="Назад">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div class="test-map-titles">
+            <h2 class="test-map-title">// ОПЕРАЦИЯ «ДЕШИФРОВЩИК»</h2>
+            <p class="test-map-subtitle">Карта агента · взлом по локациям</p>
+          </div>
+          <button id="btn-test-cards" class="test-cards-btn" aria-label="Карточки">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="3" y="5" width="13" height="16" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v12"/></svg>
+            <span id="test-cards-count" class="test-cards-count">0</span>
+          </button>
+        </div>
+
+        <div class="test-progress-banner">
+          <div class="test-progress-info">
+            <span class="test-progress-label">ОПЕРАЦИЯ В ХОДУ</span>
+            <span class="test-progress-zone" id="test-current-zone-name">Тренировочный лагерь</span>
+            <span class="test-progress-sub"><span id="test-cleared-count">0</span> взломано · следующий уровень <span id="test-next-level">1</span></span>
+          </div>
+          <button id="btn-test-continue" class="btn btn--primary test-continue-btn">
+            <span>ПРОДОЛЖИТЬ</span>
+            <span class="test-continue-sub">УРОВЕНЬ <span id="test-continue-level">1</span></span>
+          </button>
+        </div>
+
+        <!-- Рейд дня: общий seeded-шифр, награда rare+ раз в сутки -->
+        <button id="btn-test-raid" class="test-raid-banner hidden" type="button">
+          <div class="test-raid-info">
+            <span class="test-raid-title">⚡ РЕЙД ДНЯ</span>
+            <span class="test-raid-sub" id="test-raid-status">Общий шифр для всех агентов · награда: редкая+ карта</span>
+          </div>
+          <span class="test-raid-cta" id="test-raid-cta">ВЗЛОМАТЬ</span>
+        </button>
+
+        <div id="test-map-list" class="test-map-list"><!-- зоны рендерятся из JS --></div>
+      </div>
+
+      <!-- ─── ВИД: УРОВЕНЬ (как стандартный) ─── -->
+      <div id="test-level-view" class="test-view hidden">
+        <div class="game-floor-header">
+          <div class="floor-tag" style="display:flex; align-items:center; gap:10px;">
+            <button id="btn-test-level-back" class="test-back-btn test-back-btn--inline" aria-label="К карте">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="test-level-floor">
+              <span id="test-level-zone" style="font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:800; color:#58e89a; letter-spacing:0.03em;">Локация</span>
+              <span id="test-level-num" style="display:block; font-family:'JetBrains Mono',monospace; font-size:11px; color:rgba(255,255,255,0.4);">Уровень 1</span>
+            </span>
+          </div>
+          <div class="floor-meta">
+            <div class="floor-attempts">
+              <span class="floor-attempts-label">ВРЕМЯ</span>
+              <span id="test-timer" class="floor-attempts-value">90</span>
+            </div>
+            <div class="floor-attempts">
+              <span class="floor-attempts-label">ПОПЫТКИ</span>
+              <span id="test-attempts-left" class="floor-attempts-value">8</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-center">
+
+          <div id="test-boss-banner" class="test-boss-banner" style="display:none;">
+            <span>⚠ МИНИ-БОСС ЛОКАЦИИ — повышенная сложность</span>
+          </div>
+
+          <div id="test-status-banner" style="display:none;">
+            <div class="level-type-banner" id="test-status-box" style="border-color:rgba(88,232,154,0.5); background:rgba(88,232,154,0.08);">
+              <span id="test-status-text" style="color:#58e89a;"></span>
+            </div>
+          </div>
+
+          <div class="level-card">
+            <div class="input-area">
+              <div class="input-cells" id="test-cells"><!-- ячейки рендерятся из JS --></div>
+
+              <div id="test-keypad" class="virtual-keypad hidden">
+                <div class="keypad-row">
+                  <button type="button" class="keypad-btn" data-key="1">1</button>
+                  <button type="button" class="keypad-btn" data-key="2">2</button>
+                  <button type="button" class="keypad-btn" data-key="3">3</button>
+                </div>
+                <div class="keypad-row">
+                  <button type="button" class="keypad-btn" data-key="4">4</button>
+                  <button type="button" class="keypad-btn" data-key="5">5</button>
+                  <button type="button" class="keypad-btn" data-key="6">6</button>
+                </div>
+                <div class="keypad-row">
+                  <button type="button" class="keypad-btn" data-key="7">7</button>
+                  <button type="button" class="keypad-btn" data-key="8">8</button>
+                  <button type="button" class="keypad-btn" data-key="9">9</button>
+                </div>
+                <div class="keypad-row">
+                  <button type="button" class="keypad-btn keypad-btn--clear" data-key="clear">C</button>
+                  <button type="button" class="keypad-btn" data-key="0">0</button>
+                  <button type="button" class="keypad-btn keypad-btn--backspace" data-key="backspace">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;display:block;margin:0 auto;">
+                      <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/>
+                      <line x1="18" y1="9" x2="12" y2="15"/>
+                      <line x1="12" y1="9" x2="18" y2="15"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Панель карточек-бустеров (используются в уровне) -->
+              <div id="test-card-bar" class="test-card-bar"><!-- рендерится из JS --></div>
+
+              <button id="btn-test-submit" class="btn btn--primary btn--submit" style="margin-top:12px; background:linear-gradient(135deg,#1f9d57,#58e89a); border:none; width:100%;">
+                <span>ВЗЛОМАТЬ</span>
+                <span class="btn-shortcut">↵ Enter</span>
+              </button>
+            </div>
+
+            <div class="history-area">
+              <div id="test-history-list" class="history-list"></div>
+              <div id="test-history-empty" class="history-empty-hint">// ИСТОРИЯ ПУСТА</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ─── Модал: коллекция и комбинирование карточек ─── -->
+      <div id="test-cards-modal" class="test-modal hidden">
+        <div class="test-modal-box">
+          <div class="test-modal-head">
+            <h3 class="test-modal-title">// КАРТОЧКИ-БУСТЕРЫ</h3>
+            <button id="btn-test-cards-close" class="test-modal-close" aria-label="Закрыть">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+            </button>
+          </div>
+          <p class="test-modal-hint">Карточки выпадают за взлом уровней. Комбинируй их в пакеты для усиленного эффекта.</p>
+          <div class="test-modal-section-label">КОЛЛЕКЦИЯ</div>
+          <div id="test-collection-list" class="test-collection-list"></div>
+          <div class="test-modal-section-label">КОМБИНИРОВАНИЕ</div>
+          <div id="test-recipes-list" class="test-recipes-list"></div>
+        </div>
+      </div>
+
+      <!-- ─── Кинематографичный оверлей: новая локация ─── -->
+      <div id="test-unlock-overlay" class="test-unlock-overlay hidden">
+        <div class="test-unlock-inner">
+          <div class="test-unlock-rings"><span></span><span></span><span></span></div>
+          <div id="test-unlock-art" class="test-unlock-art"></div>
+          <div class="test-unlock-kicker">НОВАЯ ЛОКАЦИЯ ОТКРЫТА</div>
+          <div id="test-unlock-name" class="test-unlock-name">Хакерский квартал</div>
+          <div id="test-unlock-range" class="test-unlock-range">Уровни 11–30</div>
+          <button id="btn-test-unlock-ok" class="btn btn--primary test-unlock-ok">ВПЕРЁД</button>
+        </div>
+      </div>
+
+      <!-- ─── Оверлей: выпала карточка ─── -->
+      <div id="test-drop-overlay" class="test-drop-overlay hidden">
+        <div class="test-drop-inner">
+          <div class="test-drop-kicker">ТРОФЕЙ ВЗЛОМА</div>
+          <div id="test-drop-card" class="test-drop-card"></div>
+          <div id="test-drop-name" class="test-drop-name"></div>
+          <div id="test-drop-rarity" class="test-drop-rarity"></div>
+          <button id="btn-test-drop-ok" class="btn btn--primary test-drop-ok">ЗАБРАТЬ</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="screen-rules" class="screen">
+      <div class="rules-container">
+        <h2 class="rules-title">// ИНСТРУКЦИЯ</h2>
+        <div class="rules-list">
+          <div class="rule-item">
+            <div class="rule-icon" style="display: flex; align-items: center; justify-content: center; height: 24px; width: 24px;">
+              <svg class="rule-svg" style="color: var(--c-standard); width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+            </div>
+            <div class="rule-text"><strong>ЗЕЛЕНЫЙ</strong> — цифра верна и на своем месте. Ячейка разгадана.</div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-icon" style="display: flex; align-items: center; justify-content: center; height: 24px; width: 24px;">
+              <svg class="rule-svg" style="color: var(--c-bonus); width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="5" stroke-dasharray="3 2"/></svg>
+            </div>
+            <div class="rule-text"><strong>ЖЕЛТЫЙ</strong> — цифра есть в пароле, но стоит на другом месте.</div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-icon" style="display: flex; align-items: center; justify-content: center; height: 24px; width: 24px;">
+              <svg class="rule-svg" style="color: var(--c-hardcore); width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg>
+            </div>
+            <div class="rule-text"><strong>КРАСНЫЙ</strong> — такой цифры нет в пароле вовсе.</div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-icon" style="display: flex; align-items: center; justify-content: center; height: 24px; width: 24px;">
+              <svg class="rule-svg" style="color: var(--c-hardcore); width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="rule-text"><strong>ЗАПРЕТ</strong> — нельзя вводить одинаковые цифры в одной попытке (напр. 1111). В пароле цифры могут повторяться.</div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-icon" style="display: flex; align-items: center; justify-content: center; height: 24px; width: 24px;">
+              <svg class="rule-svg" style="color: var(--c-safe); width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="rule-text"><strong>ТАЙМЕР</strong> — каждый уровень ограничен по времени. Не успел — провал.</div>
+          </div>
+        </div>
+        <div class="rules-level-types">
+          <h3>// ТИПЫ УРОВНЕЙ</h3>
+          <div class="level-type-card level-type--standard"><span class="ltype-badge">СТАНДАРТ</span><p>Цветовые подсказки для каждой ячейки</p></div>
+          <div class="level-type-card level-type--bonus"><span class="ltype-badge">БОНУС ★</span><p>Цвета + стрелочки Больше/Меньше</p></div>
+          <div class="level-type-card level-type--hardcore"><span class="ltype-badge">ХАРДКОР ☠</span><p>Только 1-секундная общая подсказка</p></div>
+          <div class="level-type-card level-type--safe"><span class="ltype-badge">СЕЙФ ⚙</span><p>Ячейки связаны: +1 в одной = −1 в другой</p></div>
+          <div class="level-type-card level-type--glitch"><span class="ltype-badge">ГЛИТЧ ⚡</span><p>Мелькающие цифры — запомни, что замерло</p></div>
+        </div>
+        <button id="btn-rules-back" class="btn btn--secondary" style="margin-top:24px;width:100%">← НАЗАД</button>
+      </div>
+    </div>
+
+    <div id="screen-leaderboard" class="screen">
+      <div class="leaderboard-container">
+        
+        <div class="leaderboard-header">
+          <h2 class="leaderboard-title">Топ хакеров:</h2>
+          <button id="btn-leaderboard-back" class="lb-close-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div id="leaderboard-loading" class="lb-loading">
+          ПОДКЛЮЧЕНИЕ К БАЗЕ...
+        </div>
+
+
+
+        <div class="leaderboard-my-card" id="lb-my-card" style="display: none;">
+          <!-- My rank card (top) -->
+        </div>
+
+        <div class="leaderboard-list" id="leaderboard-list">
+          <!-- List items will be injected here -->
+        </div>
+
+      </div>
+    </div>
+
+    <div id="screen-friends" class="screen">
+      <div class="friends-container">
+
+        <div class="friends-header">
+          <h2 class="friends-title">// РЕФЕРАЛЬНЫЙ УЗЕЛ</h2>
+          <div class="menu-rank-badge" id="friends-rank-badge" style="margin-top: -6px; margin-bottom: 6px;">[Скрипт-кидди]</div>
+          <div class="ref-balance-card">
+            <span class="ref-balance-label">БАЛАНС DCDR</span>
+            <div class="ref-balance-value">
+              <svg class="coin-icon" style="color: var(--c-standard); width: 28px; height: 28px; filter: drop-shadow(0 0 5px rgba(88, 232, 154, 0.45));" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                <path d="M5 9l7-6 7 6-7 12L5 9z"/>
+                <path d="M5 9h14M10 3l-2 6 4 12 4-12-2-6"/>
+              </svg>
+              <span id="friends-coins-balance">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="friends-card">
+          <p class="friends-promo-text">
+            Если есть друзья, то приглашай их и получишь <span class="highlight">10% от их трат</span> в игру!
+          </p>
+          <div class="friends-action-row">
+            <button id="btn-invite-friends" class="btn btn--primary" style="flex: 1;">ПРИГЛАСИТЬ</button>
+            <button id="btn-copy-ref-link" class="btn btn--secondary" style="padding: 14px; width: 50px; min-width: 50px; flex-shrink: 0;" title="Копировать ссылку">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; display: block; margin: 0 auto;">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+              </svg>
+            </button>
+          </div>
+          <!-- Прогресс до следующего реферального майлстоуна -->
+          <div id="ref-milestone-widget" style="margin-top: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-family:'JetBrains Mono',monospace; font-size:12px; color:rgba(255,255,255,0.6); margin-bottom:6px;">
+              <span id="ref-milestone-label">До награды: 0/1 друзей</span>
+              <span id="ref-milestone-reward" style="color:var(--c-standard); font-weight:700;">+500 DCDR</span>
+            </div>
+            <div style="height:8px; border-radius:6px; background:rgba(255,255,255,0.08); overflow:hidden;">
+              <div id="ref-milestone-fill" style="height:100%; width:0%; background:linear-gradient(90deg,#58e89a,#4dabff); border-radius:6px; transition:width .4s ease;"></div>
+            </div>
+          </div>
+          <div class="ref-rewards-info" style="background: rgba(88,232,154,0.08); border: 1px solid rgba(88,232,154,0.2); border-radius: 12px; padding: 14px 16px; margin-top: 12px; font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.6;">
+            <div style="color: var(--c-standard); font-weight: 600; margin-bottom: 6px;">💎 Реферальные бонусы</div>
+            <div>Ты получишь → <strong style="color:#fff">+300 DCDR</strong>, когда друг дойдёт до 5-го уровня</div>
+            <div>Друг получит → <strong style="color:#fff">+150 DCDR</strong> сразу при регистрации по твоей ссылке</div>
+          </div>
+        </div>
+
+        <div class="daily-reward-section">
+          <h3 class="section-title">// ЕЖЕДНЕВНАЯ НАГРАДА</h3>
+
+          <div class="daily-rewards-grid" id="daily-rewards-grid">
+
+          </div>
+
+          <button id="btn-claim-daily" class="btn btn--primary btn--submit" style="margin-top: 16px; width: 100%;">
+            ПОЛУЧИТЬ НАГРАДУ
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="screen-shop" class="screen">
+      <div class="shop-container">
+
+        <div class="shop-header">
+          <h2 class="shop-title">// ТЕРМИНАЛ ЗАКУПОК</h2>
+          <div class="ref-balance-card">
+            <span class="ref-balance-label">БАЛАНС DCDR</span>
+            <div class="ref-balance-value">
+              <svg class="coin-icon" viewBox="0 0 24 24" fill="none" style="width:28px;height:28px;color:var(--c-standard);filter:drop-shadow(0 0 5px rgba(88,232,154,0.45));" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                <path d="M5 9l7-6 7 6-7 12L5 9z"/>
+                <path d="M5 9h14M10 3l-2 6 4 12 4-12-2-6"/>
+              </svg>
+              <span id="shop-coins-balance">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="shop-tabs">
+          <div class="shop-tab-indicator"></div>
+          <button class="shop-tab active" id="tab-btn-boosters">УТИЛИТЫ</button>
+          <button class="shop-tab" id="tab-btn-themes">СПОСОБНОСТИ</button>
+          <button class="shop-tab" id="tab-btn-titles">ЗВАНИЯ</button>
+          <button class="shop-tab" id="tab-btn-inventory">ИНВЕНТАРЬ</button>
+        </div>
+
+        <div class="shop-content">
+
+          <div class="shop-section active" id="shop-section-boosters">
+            <div class="shop-grid" id="shop-boosters-list">
+
+            </div>
+          </div>
+
+          <div class="shop-section" id="shop-section-themes">
+            <div class="shop-grid" id="shop-themes-list">
+
+            </div>
+          </div>
+
+          <div class="shop-section" id="shop-section-titles">
+            <div class="shop-grid" id="shop-titles-list">
+
+            </div>
+          </div>
+
+          <div class="shop-section" id="shop-section-inventory">
+            <div class="inventory-container" id="shop-inventory-list">
+
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center; padding: 10px 0 4px;">
+          <button class="footer-legal-link" id="btn-open-oferta">Публичная оферта</button>
+          <span style="color: rgba(255,255,255,0.2); font-size: 0.72rem;"> · </span>
+          <button class="footer-legal-link" id="btn-open-politika">Политика перс. данных</button>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="screen-tasks" class="screen">
+      <div class="friends-container">
+
+        <div class="friends-header">
+          <h2 class="friends-title">// ЦЕНТР ЗАДАНИЙ</h2>
+          <div class="ref-balance-card">
+            <span class="ref-balance-label">БАЛАНС DCDR</span>
+            <div class="ref-balance-value">
+              <svg class="coin-icon" style="color: var(--c-standard); width: 28px; height: 28px; filter: drop-shadow(0 0 5px rgba(88, 232, 154, 0.45));" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                <path d="M5 9l7-6 7 6-7 12L5 9z"/>
+                <path d="M5 9h14M10 3l-2 6 4 12 4-12-2-6"/>
+              </svg>
+              <span id="tasks-coins-balance">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tasks-tabs" style="margin-top: 12px; margin-bottom: 12px; width: 100%;">
+          <div class="tasks-tab-indicator"></div>
+          <button class="tasks-tab active" id="tasks-tab-btn-social">СОЦСЕТИ</button>
+          <button class="tasks-tab" id="tasks-tab-btn-ref">РЕФЕРАЛЫ</button>
+          <button class="tasks-tab" id="tasks-tab-btn-prog">ПРОГРЕСС</button>
+          <button class="tasks-tab" id="tasks-tab-btn-codes">КОДЫ</button>
+          <button class="tasks-tab" id="tasks-tab-btn-mystery">АРХИВЫ</button>
+        </div>
+
+        <div class="shop-content" style="width: 100%;">
+
+          <!-- SOCIAL TAB SECTION -->
+          <div class="shop-section active" id="tasks-section-social">
+            <div id="tasks-social-container" style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+              <!-- Dynamic content -->
+            </div>
+          </div>
+
+          <!-- REFERRALS TAB SECTION -->
+          <div class="shop-section" id="tasks-section-ref">
+            <div id="tasks-ref-container" style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+              <!-- Dynamic content -->
+            </div>
+          </div>
+
+          <!-- PROGRESSION TAB SECTION -->
+          <div class="shop-section" id="tasks-section-prog">
+            <div id="tasks-prog-container" style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+              <!-- Dynamic content -->
+            </div>
+          </div>
+
+          <!-- CODES TAB SECTION -->
+          <div class="shop-section" id="tasks-section-codes">
+            <div class="shop-item-card" style="flex-direction: column; gap: 16px; align-items: stretch; padding: 20px; width: 100%;">
+              <h3 class="section-title" style="margin: 0; align-self: flex-start;">// АКТИВАЦИЯ СЕКРЕТНОГО КОДА</h3>
+              <p class="shop-item-desc" style="margin: 0;">Введи секретный промокод или найденную пасхалку, чтобы получить мгновенные DCDR.</p>
+              <div style="display: flex; gap: 10px; width: 100%; margin-top: 8px;">
+                <input type="text" id="tasks-code-input" placeholder="ВВЕДИТЕ КОД..." style="flex: 1; min-width: 0; padding: 12px 16px; border-radius: var(--r-sm); background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-bright); color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 13px; text-transform: uppercase; outline: none;" />
+                <button class="btn btn--primary" id="tasks-btn-submit-code" style="padding: 12px 16px; flex-shrink: 0; min-height: unset; border-radius: var(--r-sm); height: 45px;">ОТПРАВИТЬ</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- MYSTERY/EASTER EGGS TAB SECTION -->
+          <div class="shop-section" id="tasks-section-mystery">
+            <div class="shop-item-card" style="flex-direction: column; gap: 14px; align-items: stretch; padding: 20px; width: 100%;">
+              <h3 class="section-title" style="margin: 0; align-self: flex-start;">// ЦИФРОВОЙ СЛЕД (КИБЕР-ПОИСК)</h3>
+              <p class="shop-item-desc" style="margin: 0;">Здесь будут отображаться зашифрованные протоколы и квесты по поиску скрытых пасхалок в игре.</p>
+              
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px; width: 100%;">
+                <!-- Clue 1 -->
+                <div style="padding: 12px 14px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: var(--r-sm); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                  <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
+                    <span style="font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5);">Протокол "Тень"</span>
+                    <span style="font-size: 11px; color: rgba(255,255,255,0.3);">Найдите спрятанный символ на странице правил...</span>
+                  </div>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--c-hardcore); background: rgba(255,92,114,0.1); border: 1px solid rgba(255,92,114,0.2); padding: 4px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">ЗАБЛОКИРОВАНО</span>
+                </div>
+
+                <!-- Clue 2 -->
+                <div style="padding: 12px 14px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: var(--r-sm); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                  <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
+                    <span style="font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5);">Протокол "Слияние"</span>
+                    <span style="font-size: 11px; color: rgba(255,255,255,0.3);">Скрытый клик на версии терминала загрузки...</span>
+                  </div>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--c-hardcore); background: rgba(255,92,114,0.1); border: 1px solid rgba(255,92,114,0.2); padding: 4px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">ЗАБЛОКИРОВАНО</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <div id="screen-game" class="screen">
+
+      <!-- HUD режима ПОТОК: жизни, комбо, очки -->
+      <div id="stream-hud" class="stream-hud hidden">
+        <div id="stream-lives" class="stream-lives"></div>
+        <div class="stream-center">
+          <span class="stream-mode-label">ПОТОК</span>
+          <span id="stream-combo-display" class="stream-combo">×1</span>
+        </div>
+        <div class="stream-score-box">
+          <span id="stream-score-display" class="stream-score-val">0</span>
+          <span class="stream-pts">pts</span>
+        </div>
+      </div>
+
+      <div class="game-floor-header">
+        <div class="floor-tag">
+          <span class="floor-word">ЭТАЖ</span>
+          <span class="floor-dash">—</span>
+          <span id="hud-level" class="floor-number">01</span>
+        </div>
+        <div class="floor-meta">
+          <div id="timer-ring" class="timer-ring">
+            <svg viewBox="0 0 48 48">
+              <circle class="timer-ring__bg" cx="24" cy="24" r="20"/>
+              <circle id="timer-ring__arc" class="timer-ring__arc" cx="24" cy="24" r="20"/>
+            </svg>
+            <span id="hud-timer" class="timer-text">60</span>
+          </div>
+          <div class="floor-attempts">
+            <span class="floor-attempts-label">ПОПЫТКИ</span>
+            <span id="hud-attempts" class="floor-attempts-value">10</span>
+          </div>
+          <button id="btn-help-level" class="help-btn" type="button" aria-label="Как играть на этом уровне">?</button>
+        </div>
+      </div>
+
+      <div class="game-center">
+
+        <div id="hardcore-flash" class="hardcore-flash hidden">
+          <span id="hardcore-flash-text"></span>
+        </div>
+
+        <div id="level-type-banner" class="level-type-banner">
+          <span id="level-type-text">СТАНДАРТНОЕ ДЕКОДИРОВАНИЕ</span>
+        </div>
+
+        <div id="booster-toolbar" class="booster-toolbar hidden">
+
+        </div>
+
+        <div id="glitch-display" class="glitch-display hidden">
+          <p class="glitch-hint">// ЗАПОМИНАЙ ЧИСЛА КОГДА ОНИ ОСТАНАВЛИВАЮТСЯ</p>
+          <div id="glitch-cells" class="glitch-cells"></div>
+          <button id="btn-glitch-ready" class="btn btn--primary" style="margin-top:16px;width:100%">
+            Я ЗАПОМНИЛ — ВВЕСТИ
+          </button>
+        </div>
+
+        <div id="safe-info" class="safe-info hidden">
+          <div id="safe-links" class="safe-links"></div>
+          <p class="safe-hint">// +1 в ячейке A = −1 в связанной ячейке B</p>
+        </div>
+
+        <div id="bonus-arrows" class="bonus-arrows hidden"></div>
+
+        <div class="level-card">
+          <div id="input-area" class="input-area">
+            <div id="input-cells" class="input-cells"></div>
+            <div id="dice-area" class="dice-area hidden">
+              <div id="dice-target-display" class="dice-target-display"></div>
+              <div id="dice-container" class="dice-container"></div>
+            </div>
+            <div id="interactive-cipher-area" class="dice-area hidden">
+              <div id="cipher-target-display" class="dice-target-display"></div>
+              <div id="cipher-container" class="dice-container"></div>
+              <p class="safe-hint" style="margin-top: 10px;">// Клик на ячейку увеличивает её (+1) и уменьшает следующую (−1) с переходом последней на первую</p>
+            </div>
+            <div id="cellhunt-area" class="cellhunt-area hidden">
+              <p class="cellhunt-hint">// НАЙДИ ЖИВУЮ ЯЧЕЙКУ — ОСТАЛЬНЫЕ ПУСТЫ</p>
+              <div id="cellhunt-grid" class="cellhunt-grid"></div>
+            </div>
+            <div id="input-error" class="input-error hidden">
+              ⚠ Нельзя вводить одинаковые цифры в попытке
+            </div>
+            <div id="virtual-keypad" class="virtual-keypad hidden">
+              <div class="keypad-row">
+                <button type="button" class="keypad-btn" data-key="1">1</button>
+                <button type="button" class="keypad-btn" data-key="2">2</button>
+                <button type="button" class="keypad-btn" data-key="3">3</button>
+              </div>
+              <div class="keypad-row">
+                <button type="button" class="keypad-btn" data-key="4">4</button>
+                <button type="button" class="keypad-btn" data-key="5">5</button>
+                <button type="button" class="keypad-btn" data-key="6">6</button>
+              </div>
+              <div class="keypad-row">
+                <button type="button" class="keypad-btn" data-key="7">7</button>
+                <button type="button" class="keypad-btn" data-key="8">8</button>
+                <button type="button" class="keypad-btn" data-key="9">9</button>
+              </div>
+              <div class="keypad-row">
+                <button type="button" class="keypad-btn keypad-btn--clear" data-key="clear">C</button>
+                <button type="button" class="keypad-btn" data-key="0">0</button>
+                <button type="button" class="keypad-btn keypad-btn--backspace" data-key="backspace">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;display:block;margin:0 auto;">
+                    <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/>
+                    <line x1="18" y1="9" x2="12" y2="15"/>
+                    <line x1="12" y1="9" x2="18" y2="15"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <button id="btn-submit" class="btn btn--primary btn--submit">
+              <span>ПРОВЕРИТЬ</span>
+              <span class="btn-shortcut">↵ Enter</span>
+            </button>
+          </div>
+
+          <div id="history-area" class="history-area">
+            <p class="history-title">// ИСТОРИЯ ПОПЫТОК</p>
+            <div id="history-list" class="history-list"></div>
+            <button id="btn-toggle-history" class="btn btn--secondary hidden" style="margin-top: 10px; width: 100%; padding: 10px; font-size: 11px; border-radius: var(--r-sm);">
+              ПОКАЗАТЬ ВСЕ ПОПЫТКИ (<span>0</span>)
+            </button>
+          </div>
+        </div>
+
+
+
+      </div>
+
+      <div class="game-footer">
+        <button id="btn-exit-game" class="btn-exit">
+          <span class="exit-icon-wrap">
+            <svg class="exit-power-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3v9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M6.34 5.64a9 9 0 1 0 11.32 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="exit-text">ВЫЙТИ ИЗ ИГРЫ</span>
+          <span class="exit-danger-dots">
+            <span></span><span></span><span></span>
+          </span>
+        </button>
+      </div>
+
+    </div>
+
+    <div id="screen-level-win" class="screen screen--overlay">
+      <div class="overlay-box overlay-box--win">
+        <div class="overlay-icon" style="display: flex; align-items: center; justify-content: center; height: 60px; width: 60px; color: var(--c-standard); margin: 0 auto 10px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width: 44px; height: 44px;"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h2>ДОСТУП РАЗРЕШЕН</h2>
+        <p id="win-details"></p>
+        <div class="overlay-stats">
+          <div class="ostat">
+            <span class="ostat-label">БОНУС ВРЕМЕНИ</span>
+            <span id="win-time-bonus" class="ostat-value">+0</span>
+          </div>
+          <div class="ostat">
+            <span class="ostat-label">ПОПЫТКИ</span>
+            <span id="win-attempts-used" class="ostat-value">0</span>
+          </div>
+          <div class="ostat">
+            <span class="ostat-label" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <svg class="coin-icon" viewBox="0 0 24 24" fill="none" style="width:11px;height:11px;color:var(--c-standard);filter:drop-shadow(0 0 3px rgba(88,232,154,0.55));vertical-align:middle;" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                <path d="M5 9l7-6 7 6-7 12L5 9z"/>
+                <path d="M5 9h14M10 3l-2 6 4 12 4-12-2-6"/>
+              </svg>
+              DCDR
+            </span>
+            <span id="win-coins-earned" class="ostat-value" style="color: var(--c-standard);">+0</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; width:100%;">
+          <button id="btn-share-win" class="btn btn--secondary" style="flex:1; gap:8px; display:flex; align-items:center; justify-content:center; border-color: rgba(88,232,154,0.5); color: var(--c-standard);" title="Поделиться результатом">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;display:block;">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            ПОХВАСТАТЬСЯ
+          </button>
+          <button id="btn-next-level" class="btn btn--primary" style="flex:1">
+            ДАЛЬШЕ →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-game-over" class="screen screen--overlay">
+      <div class="overlay-box overlay-box--lose">
+        <div class="overlay-icon" style="display: flex; align-items: center; justify-content: center; height: 60px; width: 60px; color: var(--c-hardcore); margin: 0 auto 10px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 44px; height: 44px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+        <h2>СЕТЬ ЗАБЛОКИРОВАНА</h2>
+        <p id="lose-reason"></p>
+        <p class="lose-answer">// Ответ был: <span id="lose-answer"></span></p>
+        <div class="overlay-stats">
+          <div class="ostat">
+            <span class="ostat-label">УРОВНЕЙ ПРОЙДЕНО</span>
+            <span id="lose-levels" class="ostat-value">0</span>
+          </div>
+          <div class="ostat">
+            <span class="ostat-label">СЧЁТ</span>
+            <span id="lose-score" class="ostat-value">0</span>
+          </div>
+        </div>
+        <button id="btn-restart" class="btn btn--primary" style="width:100%">ПЕРЕЗАПУСТИТЬ</button>
+        <div style="display:flex; gap:10px; width:100%; margin-top:10px;">
+          <button id="btn-share-lose" class="btn btn--secondary" style="flex:0 0 auto; padding:0 16px;" title="Поделиться результатом">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;display:block;">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </button>
+          <button id="btn-to-menu" class="btn btn--secondary" style="flex:1">В МЕНЮ</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-oferta" class="screen screen--overlay legal-overlay">
+      <div class="legal-box">
+        <div class="legal-box-header">
+          <h2>ПУБЛИЧНАЯ ОФЕРТА</h2>
+          <button class="legal-box-close" id="btn-close-oferta" aria-label="Закрыть">&times;</button>
+        </div>
+
+        <p>о заключении договора купли-продажи цифрового контента</p>
+
+        <h3>1. Общие положения</h3>
+        <p>1.1. Настоящий документ является официальным публичным предложением (офертой) Продавца в соответствии с пунктом 2 статьи 437 Гражданского кодекса РФ заключить договор купли-продажи цифрового контента на изложенных ниже условиях.</p>
+        <p>1.2. Продавец — самозанятый гражданин (плательщик налога на профессиональный доход) <strong>Чмыхалов Павел Алексеевич</strong>, ИНН <strong>540552561205</strong> (далее — «Продавец»).</p>
+        <p>1.3. Покупатель — физическое лицо, оплатившее цифровой контент на условиях настоящей Оферты (далее — «Покупатель»).</p>
+        <p>1.4. Сайт Продавца — интернет-сайт, расположенный по адресу <a href="https://suspect147.github.io/decoder/" target="_blank" rel="noopener">https://suspect147.github.io/decoder/</a>, включая размещённое по указанному адресу веб-приложение «ДЕКОДЕР», а также мини-приложение в мессенджере MAX (далее — «Сайт», «Игра»).</p>
+        <p>1.5. Договор считается заключённым с момента оплаты Покупателем выбранного цифрового контента (акцепт оферты). Оплата означает полное и безоговорочное принятие всех условий настоящей Оферты.</p>
+
+        <h3>2. Предмет договора</h3>
+        <p>2.1. Продавец предоставляет Покупателю право использования цифрового контента — виртуальных внутриигровых предметов («способностей», «модулей анализа») — исключительно в рамках игры «ДЕКОДЕР», а Покупатель обязуется его оплатить.</p>
+        <p>2.2. Цифровой контент не является материальным товаром, не подлежит доставке и предоставляется автоматически в игровом аккаунте Покупателя после подтверждения оплаты. Цифровой контент привязывается к игровому аккаунту Покупателя и не подлежит передаче другим лицам.</p>
+        <p>2.3. Перечень и стоимость цифрового контента:</p>
+        <div class="legal-card">
+          <table>
+            <tr><th>Наименование</th><th>Описание</th><th>Цена</th></tr>
+            <tr><td>Стелс-пакет</td><td>Игровой модуль: +1000 DCDR (игровая валюта) при активации</td><td>49 ₽</td></tr>
+            <tr><td>Разгон ядра</td><td>Игровой модуль: +5 сек к таймеру, +100 DCDR</td><td>99 ₽</td></tr>
+            <tr><td>Матричный майнер</td><td>Игровой модуль: +10 сек, +15% к DCDR, +300 DCDR</td><td>199 ₽</td></tr>
+            <tr><td>Синтвейв-драйвер</td><td>Игровой модуль: +1 попытка, +25% к DCDR, +600 DCDR</td><td>299 ₽</td></tr>
+            <tr><td>Ретро-анализатор</td><td>Игровой модуль: +15 сек, +1 попытка, +40% к DCDR, +800 DCDR</td><td>399 ₽</td></tr>
+          </table>
+        </div>
+        <p>2.4. Игровая валюта DCDR и внутриигровые бонусы используются исключительно внутри игры, не имеют денежной стоимости вне игры и не подлежат обмену на денежные средства.</p>
+
+        <h3>3. Порядок оплаты</h3>
+        <p>3.1. Оплата производится через сервис приёма платежей Robokassa банковской картой или иными способами, доступными на странице оплаты.</p>
+        <p>3.2. Цены указаны в российских рублях. Стоимость цифрового контента определяется ценой, действующей на момент оплаты. Моментом оплаты считается поступление подтверждения об успешном платеже от платёжного сервиса.</p>
+        <p>3.3. Чек направляется Покупателю в соответствии с законодательством РФ.</p>
+
+        <h3>4. Предоставление цифрового контента</h3>
+        <p>4.1. Цифровой контент активируется в игровом аккаунте Покупателя автоматически, как правило, в течение нескольких минут после оплаты.</p>
+        <p>4.2. Моментом исполнения обязанности Продавца считается зачисление приобретённого цифрового контента в игровой аккаунт Покупателя.</p>
+        <p>4.3. Если контент не был предоставлен в течение 24 часов после оплаты, Покупатель вправе обратиться к Продавцу по адресу <strong>p.a.chmykhalov@gmail.com</strong>, указав дату оплаты и сумму. Продавец обязуется предоставить оплаченный контент либо вернуть денежные средства. Ответ на обращения Покупателя предоставляется, как правило, в течение 5 рабочих дней.</p>
+
+        <h3>5. Возврат денежных средств</h3>
+        <p>5.1. Оплачивая цифровой контент, Покупатель соглашается с тем, что предоставление контента начинается немедленно после оплаты. После предоставления цифрового контента обязательства Продавца считаются исполненными, и Покупатель утрачивает право на односторонний отказ от исполненного договора.</p>
+        <p>5.2. Возврат денежных средств производится в обязательном порядке, если оплаченный контент не был предоставлен по вине Продавца (п. 4.3), произошло двойное списание средств либо иная техническая ошибка при оплате.</p>
+        <p>5.3. В остальных случаях (например, Покупатель передумал или ошибся с выбором) Покупатель вправе направить запрос на возврат на адрес <strong>p.a.chmykhalov@gmail.com</strong>, указав дату и сумму оплаты, а также причину, по которой запрашивается возврат. Продавец рассматривает такие обращения индивидуально: возврат по этому основанию не гарантирован и производится по усмотрению Продавца — при неудовлетворительной или необоснованной причине в возврате может быть отказано.</p>
+        <p>5.4. Срок рассмотрения обращения о возврате — не более 5 рабочих дней с момента получения. При положительном решении денежные средства возвращаются тем же способом, которым была произведена оплата, в течение 10 рабочих дней с момента принятия решения о возврате.</p>
+
+        <h3>6. Права и обязанности сторон</h3>
+        <p>6.1. Продавец обязуется предоставить оплаченный цифровой контент в порядке, предусмотренном настоящей Офертой, и обеспечивать работоспособность игры с учётом технических возможностей.</p>
+        <p>6.2. Покупатель обязуется не использовать программные средства для вмешательства в работу игры и не передавать доступ к своему аккаунту третьим лицам.</p>
+        <p>6.3. Продавец вправе отказать в заключении договора при недобросовестном поведении Покупателя, в том числе при попытках получения контента без оплаты.</p>
+        <p>6.4. Продавец не несёт ответственности за невозможность использования Игры вследствие действий третьих лиц, перебоев в работе сети «Интернет», платёжных систем, мессенджера MAX и иных обстоятельств, находящихся вне разумного контроля Продавца.</p>
+
+        <h3>7. Персональные данные</h3>
+        <p>7.1. Для исполнения договора обрабатываются: идентификатор и имя пользователя в мессенджере MAX, данные о платеже. Данные банковской карты обрабатываются исключительно платёжным сервисом Robokassa и Продавцу не передаются.</p>
+        <p>7.2. Оплачивая контент, Покупатель даёт согласие на обработку указанных данных в целях исполнения договора.</p>
+        <p>7.3. Обработка персональных данных осуществляется в соответствии с Политикой обработки персональных данных, размещённой на Сайте (см. соответствующий раздел в приложении).</p>
+
+        <h3>8. Прочие условия</h3>
+        <p>8.1. Продавец вправе изменять настоящую Оферту; изменения вступают в силу с момента публикации на Сайте и не распространяются на уже оплаченные покупки.</p>
+        <p>8.2. Во всём, что не урегулировано настоящей Офертой, стороны руководствуются законодательством Российской Федерации.</p>
+
+        <h3>9. Реквизиты Продавца</h3>
+        <div class="legal-card">
+          <p>Самозанятый (плательщик НПД): <strong>Чмыхалов Павел Алексеевич</strong></p>
+          <p>ИНН: <strong>540552561205</strong></p>
+          <p>Контактный телефон: <strong>+7 985 555-20-10</strong></p>
+          <p>E-mail для обращений: <strong>p.a.chmykhalov@gmail.com</strong></p>
+          <p>Сайт: <a href="https://suspect147.github.io/decoder/" target="_blank" rel="noopener">https://suspect147.github.io/decoder/</a></p>
+        </div>
+
+        <p class="legal-date">Дата публикации: 06.07.2026</p>
+      </div>
+    </div>
+
+    <div id="screen-politika" class="screen screen--overlay legal-overlay">
+      <div class="legal-box">
+        <div class="legal-box-header">
+          <h2>ПОЛИТИКА ПЕРС. ДАННЫХ</h2>
+          <button class="legal-box-close" id="btn-close-politika" aria-label="Закрыть">&times;</button>
+        </div>
+
+        <p>игра «ДЕКОДЕР» (<a href="https://suspect147.github.io/decoder/" target="_blank" rel="noopener">https://suspect147.github.io/decoder/</a>)</p>
+
+        <h3>1. Общие положения</h3>
+        <p>1.1. Настоящая Политика определяет порядок обработки и защиты персональных данных пользователей игры «ДЕКОДЕР» (далее — «Игра»), доступной по адресу <a href="https://suspect147.github.io/decoder/" target="_blank" rel="noopener">https://suspect147.github.io/decoder/</a> и в виде мини-приложения в мессенджере MAX.</p>
+        <p>1.2. Оператор персональных данных — самозанятый гражданин (плательщик НПД) Чмыхалов Павел Алексеевич, ИНН 540552561205 (далее — «Оператор»).</p>
+        <p>1.3. Политика разработана в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ «О персональных данных».</p>
+        <p>1.4. Используя Игру, пользователь выражает согласие с настоящей Политикой. В случае несогласия пользователь должен прекратить использование Игры.</p>
+
+        <h3>2. Какие данные обрабатываются</h3>
+        <div class="legal-card">
+          <ul>
+            <li>идентификатор пользователя в мессенджере MAX;</li>
+            <li>имя пользователя и ссылка на аватар из профиля MAX;</li>
+            <li>игровые данные (прогресс, рекорды, игровая валюта, приобретённый контент);</li>
+            <li>сведения о платежах: номер счёта, сумма, статус оплаты (без данных банковской карты);</li>
+            <li>технические данные: платформа и версия приложения.</li>
+          </ul>
+        </div>
+        <p>Данные банковских карт Оператору не передаются и обрабатываются исключительно платёжным сервисом Robokassa (ООО «Робокасса»).</p>
+
+        <h3>3. Цели обработки</h3>
+        <p>3.1. Данные обрабатываются для: работы игрового аккаунта и сохранения прогресса; отображения таблицы лидеров; исполнения договора купли-продажи цифрового контента (обработка покупок); ответов на обращения пользователей; анализа работы Игры и исправления ошибок.</p>
+
+        <h3>4. Порядок и условия обработки</h3>
+        <p>4.1. Обработка осуществляется автоматизированным способом. Данные хранятся на серверах облачного сервиса Supabase.</p>
+        <p>4.2. Оператор принимает необходимые организационные и технические меры для защиты данных от неправомерного доступа, изменения, раскрытия или уничтожения.</p>
+        <p>4.3. Данные не передаются третьим лицам, за исключением случаев, необходимых для исполнения договора (платёжный сервис Robokassa) или предусмотренных законодательством РФ.</p>
+        <p>4.4. Данные хранятся до удаления игрового аккаунта либо до отзыва согласия пользователем. Сведения о платежах хранятся в течение сроков, установленных законодательством РФ.</p>
+
+        <h3>5. Права пользователя</h3>
+        <p>5.1. Пользователь вправе: получить сведения об обработке своих данных; требовать уточнения, блокирования или удаления данных; отозвать согласие на обработку.</p>
+        <p>5.2. Для реализации своих прав пользователь может обратиться к Оператору по адресу <strong>p.a.chmykhalov@gmail.com</strong>. Ответ предоставляется, как правило, в течение 5 рабочих дней.</p>
+
+        <h3>6. Заключительные положения</h3>
+        <p>6.1. Оператор вправе вносить изменения в настоящую Политику. Актуальная редакция всегда размещена на этой странице.</p>
+        <p>6.2. Вопросы, не урегулированные Политикой, регулируются законодательством Российской Федерации.</p>
+
+        <div class="legal-card">
+          <p>Оператор: Чмыхалов Павел Алексеевич (самозанятый, плательщик НПД)</p>
+          <p>ИНН: 540552561205</p>
+          <p>E-mail: p.a.chmykhalov@gmail.com</p>
+        </div>
+
+        <p class="legal-date">Дата публикации: 04.07.2026</p>
+      </div>
+    </div>
+
+  </div>
+
+  <nav id="bottom-nav" class="bottom-nav">
+    <div class="nav-indicator"></div>
+    <button class="nav-item" id="nav-friends">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none">
+
+          <circle cx="9" cy="7" r="3" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M3 19c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          <circle cx="18" cy="8" r="2.2" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M21 18c0-2-1.4-3.5-3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="nav-label">Друзья</span>
+    </button>
+
+    <button class="nav-item" id="nav-tasks">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M9 11.5l2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="nav-label">Задания</span>
+    </button>
+
+    <button class="nav-item" id="nav-menu-btn">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="1.7"/>
+          <rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="1.7"/>
+          <rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="1.7"/>
+          <rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="1.7"/>
+        </svg>
+      </div>
+      <span class="nav-label">Меню</span>
+    </button>
+
+    <button class="nav-item" id="nav-games">
+      <span id="nav-games-badge" class="nav-game-badge hidden"></span>
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="7" width="20" height="13" rx="3" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M8 11v4M6 13h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          <circle cx="15" cy="12" r="1.2" fill="currentColor"/>
+          <circle cx="18" cy="14" r="1.2" fill="currentColor"/>
+        </svg>
+      </div>
+      <span class="nav-label">Игры</span>
+    </button>
+
+    <button class="nav-item" id="nav-shop">
+      <span id="nav-shop-badge" class="nav-game-badge hidden"></span>
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none">
+
+          <path d="M4 7h16l-1.5 11a2 2 0 01-2 1.8H7.5a2 2 0 01-2-1.8L4 7z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+          <path d="M8 7V5a4 4 0 018 0v2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          <path d="M12 11v5M9.5 13.5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="nav-label">Магазин</span>
+    </button>
+  </nav>
+
+  <svg style="display: none">
+    <filter id="displacementFilter">
+      <feImage
+              href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAMoElEQVRogZ1a3ZqjyI6MkBJc3XOz7/+g+53pMoq9kJQk2K6Zs0yNGzAG/YRCSgn+/r0PYpCD2IEH+SC/yIdZfj6MD9pu3M02cjMb5KC50cycNBoJ0kiCJKn8BEWCACgCAkAAIAhQAGAAIRccNGIDBjCADdilHdilh/QAH9AX+DA+yN1sM9vAYRw2SIKg1dNJkm61Y0YzGkmDGc1A0og8JEGT1Q1gBCkQJEgArENgCi4QFDR1AABIAEEJggAIECRJogBJeblIkLK0AUEOjpQUBMzMyPk/naTRUvTUgTQDjWZESmxgfgJGIA8poE62+HNHvSeJedzngdYgZZaASNepr1HelgQhYthuhjKrpaBmrP+MZuUHt9IqP9mKWnkEZiAxzc8UkgQFkDzFLAeohZJw7qh3InRAIYYUQAhBCOVStauHbaTBQXMaPWV2L4Sb08ytxPUS1wxmaftohIEX0QkT076Fe1UcZExISB3Uhp3Ctw9CSt0i2jMSKCKmP4nBB70AYsbEudtwcx++DR/DbJi7mafh6WVs2sSPQJql+Zmxm9Y/kVPSsw1OlB/K3gIhEwI4ICqDO47QM8Lj2BShCFHMCEnTaPhXYd5TBXN3H2N/7PtjezzG/nDfzDe6kw66+cRQBsQKfaSLK2RXBU6Y84SSFtwrhCOjNcULAaEIHId/f38f37tCoQAEBCBQ0uCXO+E0N7rb5j58e+y/f339/v3462t7bDaGuTMZkwZ6RgBIEvk50d/Si1DGMi8KqHVicc8ZstEIknBAh3Aojjjw/Obzb/v7z/78ez9CVAhKiAHDv8qYLPSPfX/8+vX719f//Nr/2rd9s+FWdOPNWCk9KzpZzM7Cjdr2J0+CnPSji+yEAATAPqeCO0IRccTzie9tH//7/A+ex98hISoeAhr2SCah08wSPV/7778eX3899t/DNrdJnMVXGapW4hbceSLnZP4VP9P20jw76afUUAMqACkkQYPb+OP8j8WXjnhGxHFECBQEcPCr2JFGp49tG4992x/742GeadcIFNXgBE3zQJ1sE99wX0Q/sbXkrsvRCa+ZCxonh/jc9Y3vZ4yDT4UiEJLIkIZ9mYFmNtLGw20bY9vMh/mocAVViM/Yb7uDInlyJRfEL9C/RO881HJGEFtZQJnBLc8LDBwxxrF7wCNiZmmBw3abGcvo5u6bcTg9MzEh4sXkrUMVBLwY/oV83m7pNgEpO1sNZDSUtWAZL6ag3GKjghIVRabDdzeaZx6AmRs35yCsLTq5pUHPhW1O/LwXnauVr1t7RQuvcuYHAKpUSIYgMzkhyiAwQkWjtruDltUlRuZf+qx/WCiZ9cdCO9OQn23fmp940eUrCMwgpgArNVQRiqo5YJBn8UGJQEAsCPnmDnoXOk7H8CQm2Mru09LzD1cs/ajAaXV79cUstZupqoA6CcsIIZyiEIiqMxJCw410ZJ5y0tyJTrbT0h20L9J/9MNVE85/rrFbUs4I4HpeVXJKAVlWIQxrjpJEDPOytlkyvaOL0AUti7icKt00WSR+5SKhi5eVTtdMrdUH0kJveRElL29nJi4P2Kh1SqcqTvzwLmsF9Sn0xwC4UdDbzHaTm7vT6rC+uwwr+/Onmre5pamw7vdVjgevfJ+txqRVmPPxMvIsAhx5nS1U3hALITebFKD0bvlsbd8BcS+yj9y7darFAgWNfm2U8x5mqrwD7gU/wUUTUwj1sqTqtnHJ9d2G4itL2n7d6IfhX0JLv3V5Zz2HFnVXUmU3bvhINeaqdzJPEQONvgN0yfcXU+pn/auJrS/FjecbJQBcPCp7XPs0gQTTVZN/asUSQGvSdb1TVtrUO3x7bNl4nQyaq44Gr96RrPd1C9wImn9OdTa34LmuiiJ51EQYhb1qHdwIq2ztoau2eAoiau2p3Mpbvpb85YvMSrDpwj5v66gQQ6MECHeQ6ZSMCoga3SQiKfQQAIQmd1NAclyoyIOdW9RsgFJG9TyXLBawDwclkzppj8YzIXh+DZfcjFlw2NnJaVDnFAgELIt0Im68xIPcXFkk3/fQSvoresN33WZk5lAdDB0X+A2cwDe1JP5i/CJECHEksFHS3PzmUGm4h068JqccZE1HL+1SFr3F/VKD8Q5qmAbAcd3UAXwIGHEMzkq5CegqQnFKpUgJo9vFD/VeiLGlex1mi+A+ZF9NlcQOEaBpg4xB3cZCNbo6kDB/bm5chJpwKBI6QIhcmkGvEscvfsKSPijt77diEprqGPnsqAKFqsHEhgzvgsfMi2sE22ywaybCNAw+DeHkvMuALHoe8Dw2k6OqwZC7+tcQzcC5nGUI3dsfiIa52FHmrPYE2TlAsV2bEaI3w8t8cxHoc/wAFI9Gq0D37RauhBShrS0GHHk9/m8OdQ0MFDsE4UBEw43wZIyS4R/NEPtd+/5Aqk2VojDNnmj0GN7bnvf/Zff7avw7fDh5w01GuSg49eKgQA46E4jm//5gb+ifh+ejBkFhXQJhgQoqWZZqu76sEzF826SZp+KKyzxZ3Qz4ZUNacgJ5wYjM31tT9/7X++Ht/b4+kuOskga4w3+EVEY0OKgAmxP78fwvMYTzenOiXxz07vWxWPhpOi+lhxZAEfPffqOU3R7MvppDwzAoJzbG7nr489cW+/YcQ5URuiFPw9BeAVOvr4gRcezEcTBChzwoQAETrpUtMDFfEkv4nc28k38SJYWTs3xrqK9XS3uggpyQQoMYhDN21wbsHg/Q8BguY5BI9OdEg+TAo4qCzAOqepQROkIAvYlHkKGsUFNf1FZSK8BK+pq4ahT1C0CVE2Ztk2uUsn2/lAsZMQyeAeByYpjMRM75V04hKWHxol4AZDo+05YieSkn4hRCMs18p6SldEUtuVuHxc5dfS/I6XV3Z4yMqiYBmB+ydgBE62mYVQkRywwYMBJDe3palsuYnIJnJKSUUAgRylc7GSmAGKAYgEnI+qqXh3mn5pe1RqLOF8KJfs96ztRpIkgTsLycWtd0A9Tm7IIAh7YijIAMzAl44rsNX4uc3K8yO1/LLvwYztc9z+Ctd6N7aYV+p07oJtRFEsCq6CA55e6QnakXRXinAiOmi3N0XDjJQiL6JcjCj0qlaD7vcUOBQv1idJMR19Uu6/UyETZfKuUkJeOCIpToBei8CyrJs8oCUUD/Afvm5XL4QUzfAAAAABJRU5ErkJggg=="
+              result="turbulence"
+              preserveAspectRatio="none"/>
+
+      <feDisplacementMap
+              in="SourceGraphic"
+              in2="turbulence"
+              scale="600"
+              xChannelSelector="R"
+              yChannelSelector="G"
+      />
+    </filter>
+  </svg>
+
+  <!-- Библиотеки хостятся локально: cdn.jsdelivr.net заблокирован в РФ,
+       cdnjs.cloudflare.com периодически замедляется ТСПУ. Из-за недоступного
+       jsdelivr window.supabase не создавался -> у игроков из РФ не работали
+       рейтинг и сохранение прогресса. -->
+  <script src="js/vendor/pako.min.js?v=56"></script>
+  <script src="js/vendor/lottie.min.js?v=56"></script>
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <script src="js/vendor/supabase.min.js?v=56"></script>
+  <script src="js/supabaseClient.js?v=57"></script>
+  <script src="js/utils.js?v=56"></script>
+  <script src="js/levelGenerator.js?v=56"></script>
+  <script src="js/inputController.js?v=56"></script>
+  <script src="js/validator.js?v=56"></script>
+  <script src="js/uiController.js?v=56"></script>
+  <script src="js/gameManager.js?v=56"></script>
+  <script src="js/testMode.js?v=56"></script>
+  <script src="js/matrix.js?v=56"></script>
+  <script src="js/main.js?v=57"></script>
+
+  <!-- Модальное окно рейтинга по режимам -->
+  <div id="lb-modal-overlay" class="lb-modal-overlay hidden">
+    <div class="lb-modal" role="dialog" aria-modal="true">
+      <div class="lb-modal-header">
+        <span id="lb-modal-title" class="lb-modal-title">РЕЙТИНГ</span>
+        <button id="lb-modal-close" class="lb-modal-close" aria-label="Закрыть">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="lb-modal-tabs" class="lb-modal-tabs" style="display:none;">
+        <button class="lb-mtab active" data-sub="score">По очкам</button>
+        <button class="lb-mtab" data-sub="levels">По уровню</button>
+      </div>
+      <div class="lb-modal-body">
+        <div id="lb-modal-loading" class="leaderboard-loading" style="display:none;">Загрузка рейтинга...</div>
+        <div id="lb-modal-my-card" class="leaderboard-my-card" style="display:none;"></div>
+        <div id="lb-modal-list" class="leaderboard-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Онбординг: туториал по механике уровня -->
+  <div id="tutorial-overlay" class="tut-overlay hidden">
+    <div class="tut-modal" role="dialog" aria-modal="true">
+      <div class="tut-badge"><span id="tut-icon" class="tut-icon"></span></div>
+      <span id="tut-tag" class="tut-tag">НОВАЯ МЕХАНИКА</span>
+      <h2 id="tut-title" class="tut-title">—</h2>
+      <p id="tut-sub" class="tut-sub">—</p>
+      <div id="tut-steps" class="tut-steps"></div>
+      <button id="tut-ok" class="btn btn--primary" style="width:100%;margin-top:18px;">ПОНЯТНО, ПОЕХАЛИ</button>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,575 @@
+/* ============================================================
+   ТЕСТОВЫЙ РЕЖИМ — Карта агента + карточные бустеры
+   Ввод/клавиатура наследуют стили стандартного уровня (.input-cell,
+   .virtual-keypad, .history-*), здесь — только надстройка режима.
+   ============================================================ */
+
+#screen-test {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+.test-view { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+.test-view.hidden { display: none; }
+
+/* ─── Шапка карты ─── */
+.test-map-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.test-map-titles { flex: 1; min-width: 0; }
+.test-map-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 19px;
+  font-weight: 800;
+  color: #58e89a;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+.test-map-subtitle {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  margin: 2px 0 0;
+}
+
+.test-back-btn {
+  flex-shrink: 0;
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.75);
+  cursor: pointer;
+  transition: background var(--t-fast, 0.15s), transform var(--t-fast, 0.15s);
+}
+.test-back-btn svg { width: 20px; height: 20px; }
+.test-back-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
+.test-back-btn--inline { width: 34px; height: 34px; border-radius: 10px; }
+
+.test-cards-btn {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(88,232,154,0.3);
+  background: rgba(88,232,154,0.08);
+  color: #58e89a;
+  cursor: pointer;
+}
+.test-cards-btn svg { width: 20px; height: 20px; }
+.test-cards-count {
+  position: absolute;
+  top: -6px; right: -6px;
+  min-width: 18px; height: 18px;
+  padding: 0 4px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 9px;
+  background: #58e89a;
+  color: #04130b;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* ─── Баннер прогресса / продолжить ─── */
+.test-progress-banner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(88,232,154,0.25);
+  background: linear-gradient(135deg, rgba(88,232,154,0.10), rgba(88,232,154,0.02));
+}
+.test-progress-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.test-progress-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(88,232,154,0.7);
+}
+.test-progress-zone {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.test-progress-sub { font-size: 11px; color: rgba(255,255,255,0.45); }
+.test-continue-btn {
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #1f9d57, #58e89a) !important;
+  border: none !important;
+  line-height: 1.1;
+}
+.test-continue-sub {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+
+/* ─── Список локаций ─── */
+.test-map-list { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+
+.test-zone {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--t-fast, 0.15s), border-color var(--t-fast, 0.15s);
+}
+.test-zone:active { transform: scale(0.99); }
+.test-zone::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--zone-glow, transparent);
+  opacity: 0.12;
+  pointer-events: none;
+}
+.test-zone--locked { cursor: not-allowed; opacity: 0.55; }
+.test-zone--active { border-color: var(--zone-color, #58e89a); }
+.test-zone--active::before { opacity: 0.18; }
+.test-zone--done { border-color: rgba(88,232,154,0.35); }
+
+.test-zone-art {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px; height: 64px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--zone-glow, rgba(255,255,255,0.06));
+  color: #fff;
+}
+.test-zone-art svg { width: 34px; height: 34px; }
+
+.test-zone-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.test-zone-top { display: flex; align-items: center; gap: 8px; }
+.test-zone-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.test-zone-badge {
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 7px;
+  border-radius: 7px;
+  border: 1px solid currentColor;
+}
+.test-zone-badge--active { color: var(--zone-color, #58e89a); }
+.test-zone-badge--locked { color: rgba(255,255,255,0.4); }
+.test-zone-badge--done { color: #58e89a; }
+.test-zone-badge--boss { color: #ff6b4a; }
+
+.test-zone-desc { font-size: 11.5px; color: rgba(255,255,255,0.45); line-height: 1.35; }
+.test-zone-meta {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: rgba(255,255,255,0.55);
+}
+.test-zone-boss-flag { color: #ff6b4a; }
+
+/* Прогресс-бар внутри зоны */
+.test-zone-bar {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+  margin-top: 2px;
+}
+.test-zone-bar-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  border-radius: 3px;
+  background: var(--zone-color, #58e89a);
+  transition: width 0.5s ease;
+}
+
+/* ─── Уровень: ячейки ввода (как в «Пароле дня»/классике) ─── */
+#test-cells .input-cell { cursor: text; position: relative; }
+#test-cells .test-cell-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 30px;
+  font-weight: 700;
+  color: #fff;
+  min-width: 1ch;
+  text-align: center;
+  pointer-events: none;
+}
+#test-cells .input-cell:not(.has-value) .test-cell-display::after {
+  content: "?";
+  color: rgba(255,255,255,0.18);
+  font-size: 22px;
+}
+#test-cells .test-cell {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  font-size: 30px;
+  text-align: center;
+  border: none;
+  background: transparent;
+  cursor: text;
+  z-index: 10;
+  -moz-appearance: textfield;
+}
+#test-cells .test-cell::-webkit-outer-spin-button,
+#test-cells .test-cell::-webkit-inner-spin-button { display: none; }
+
+/* Подсвеченная подсказкой ячейка */
+#test-cells .input-cell.hint-revealed {
+  border-color: rgba(88,232,154,0.55) !important;
+  box-shadow: var(--glow-bull, 0 0 12px rgba(88,232,154,0.4)) !important;
+}
+
+.test-boss-banner {
+  width: 100%;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff6b4a;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,107,74,0.35);
+  background: rgba(255,107,74,0.08);
+}
+
+/* ─── Панель карточек в уровне ─── */
+.test-card-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.test-card-bar:empty { display: none; }
+.test-use-card {
+  position: relative;
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--t-fast, 0.15s), border-color var(--t-fast, 0.15s);
+}
+.test-use-card:active { transform: scale(0.94); }
+.test-use-card:disabled { opacity: 0.35; cursor: not-allowed; }
+.test-use-card svg { width: 16px; height: 16px; }
+.test-use-card .test-use-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+}
+.test-use-card--hint { border-color: rgba(88,232,154,0.4); color: #58e89a; }
+.test-use-card--time { border-color: rgba(77,171,255,0.4); color: #4dabff; }
+.test-use-card--attempt { border-color: rgba(255,201,77,0.4); color: #ffc94d; }
+.test-use-card--combo { border-color: rgba(179,109,255,0.5); color: #b36dff; background: rgba(179,109,255,0.08); }
+.test-use-card--freeze   { border-color: #4dabff44; color: #4dabff; }
+.test-use-card--shield   { border-color: #58e89a44; color: #58e89a; }
+.test-use-card--scanner  { border-color: #4dabff44; color: #4dabff; }
+
+/* ─── Модал карточек ─── */
+.test-modal {
+  position: fixed; inset: 0;
+  z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background: rgba(4,8,12,0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.test-modal.hidden { display: none; }
+.test-modal-box {
+  width: 100%;
+  max-width: 440px;
+  max-height: 84vh;
+  overflow-y: auto;
+  padding: 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #0c1014;
+}
+.test-modal-head { display: flex; align-items: center; justify-content: space-between; }
+.test-modal-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px; font-weight: 800; color: #58e89a; margin: 0;
+}
+.test-modal-close {
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+}
+.test-modal-close svg { width: 18px; height: 18px; }
+.test-modal-hint { font-size: 12px; color: rgba(255,255,255,0.45); margin: 10px 0 4px; line-height: 1.4; }
+.test-modal-section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.4);
+  margin: 18px 0 10px;
+}
+
+.test-collection-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+}
+.test-collection-empty { font-size: 12px; color: rgba(255,255,255,0.3); grid-column: 1 / -1; text-align: center; padding: 12px; }
+
+.test-card {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  text-align: center;
+}
+.test-card-icon { width: 30px; height: 30px; }
+.test-card-icon svg { width: 100%; height: 100%; }
+.test-card-title { font-size: 11px; font-weight: 700; color: #fff; line-height: 1.2; }
+.test-card-count {
+  position: absolute; top: 6px; right: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.6);
+}
+.test-card--common   { border-color: rgba(255,255,255,0.16); }
+.test-card--rare     { border-color: rgba(77,171,255,0.5); background: rgba(77,171,255,0.06); }
+.test-card--legendary{ border-color: rgba(255,201,77,0.6); background: rgba(255,201,77,0.07); box-shadow: 0 0 14px rgba(255,201,77,0.15); }
+.test-card-rarity-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; font-weight: 700; letter-spacing: 0.08em;
+  padding: 2px 6px; border-radius: 6px;
+  border: 1px solid currentColor;
+}
+.test-card--common   .test-card-rarity-tag { color: rgba(255,255,255,0.45); }
+.test-card--rare     .test-card-rarity-tag { color: #4dabff; }
+.test-card--legendary.test-card .test-card-rarity-tag { color: #ffc94d; }
+
+/* Рецепты комбинирования */
+.test-recipes-list { display: flex; flex-direction: column; gap: 10px; }
+.test-recipe {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(179,109,255,0.25);
+  background: rgba(179,109,255,0.05);
+}
+.test-recipe-formula {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.test-recipe-name { font-size: 13px; font-weight: 800; color: #b36dff; }
+.test-recipe-ingredients { font-size: 11px; color: rgba(255,255,255,0.5); }
+.test-recipe-effect { font-size: 11px; color: rgba(255,255,255,0.4); }
+.btn-test-craft {
+  flex-shrink: 0;
+  padding: 9px 14px;
+  border-radius: 11px;
+  border: 1px solid rgba(179,109,255,0.5);
+  background: rgba(179,109,255,0.15);
+  color: #b36dff;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--t-fast, 0.15s);
+}
+.btn-test-craft:active { transform: scale(0.94); }
+.btn-test-craft:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ─── Кинематографичный оверлей новой локации ─── */
+.test-unlock-overlay {
+  position: fixed; inset: 0;
+  z-index: 240;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at center, rgba(10,30,18,0.85), rgba(2,4,6,0.96));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: test-fade-in 0.4s ease;
+}
+.test-unlock-overlay.hidden { display: none; }
+.test-unlock-inner {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 30px;
+  text-align: center;
+}
+.test-unlock-rings { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 180px; height: 180px; }
+.test-unlock-rings span {
+  position: absolute; inset: 0; margin: auto;
+  border-radius: 50%;
+  border: 1px solid rgba(88,232,154,0.4);
+  animation: test-ring-pulse 2.4s ease-out infinite;
+}
+.test-unlock-rings span:nth-child(2) { animation-delay: 0.8s; }
+.test-unlock-rings span:nth-child(3) { animation-delay: 1.6s; }
+.test-unlock-art {
+  position: relative;
+  width: 96px; height: 96px;
+  border-radius: 24px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  animation: test-pop 0.6s cubic-bezier(0.18, 1.2, 0.4, 1);
+}
+.test-unlock-art svg { width: 52px; height: 52px; }
+.test-unlock-kicker {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+  color: #58e89a;
+  margin-top: 8px;
+}
+.test-unlock-name { font-size: 26px; font-weight: 800; color: #fff; }
+.test-unlock-range { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(255,255,255,0.5); }
+.test-unlock-ok { margin-top: 16px; padding: 12px 40px; }
+
+/* ─── Оверлей выпавшей карточки ─── */
+.test-drop-overlay {
+  position: fixed; inset: 0;
+  z-index: 240;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(2,4,6,0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: test-fade-in 0.3s ease;
+}
+.test-drop-overlay.hidden { display: none; }
+.test-drop-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 30px; text-align: center;
+}
+.test-drop-kicker {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+  color: rgba(255,255,255,0.5);
+}
+.test-drop-card {
+  width: 120px; height: 160px;
+  border-radius: 18px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05);
+  animation: test-card-flip 0.7s cubic-bezier(0.18, 1.1, 0.4, 1);
+}
+.test-drop-card svg { width: 54px; height: 54px; }
+.test-drop-card.is-common   { border-color: rgba(255,255,255,0.2); }
+.test-drop-card.is-rare     { border-color: rgba(77,171,255,0.6); box-shadow: 0 0 22px rgba(77,171,255,0.25); }
+.test-drop-card.is-legendary{ border-color: rgba(255,201,77,0.7); box-shadow: 0 0 30px rgba(255,201,77,0.35); }
+.test-drop-name { font-size: 19px; font-weight: 800; color: #fff; }
+.test-drop-rarity { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
+.test-drop-rarity.is-common    { color: rgba(255,255,255,0.55); }
+.test-drop-rarity.is-rare      { color: #4dabff; }
+.test-drop-rarity.is-legendary { color: #ffc94d; }
+.test-drop-ok { margin-top: 14px; padding: 12px 40px; }
+
+@keyframes test-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes test-pop { 0% { transform: scale(0.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes test-card-flip { 0% { transform: rotateY(90deg) scale(0.7); opacity: 0; } 100% { transform: rotateY(0) scale(1); opacity: 1; } }
+@keyframes test-ring-pulse {
+  0% { transform: scale(0.4); opacity: 0.8; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+
+/* Иконка режима в списке «Игры» */
+.game-mode-icon--test { color: #58e89a; }
+.game-mode-card--test .game-mode-name { color: #58e89a; }
+
+/* ─── Сканер: перманентные отметки исключённых цифр ─── */
+.keypad-btn.key-excluded {
+  opacity: 0.28;
+  filter: grayscale(1);
+  text-decoration: line-through;
+}
+.test-excluded-line {
+  margin: 8px 0 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: rgba(255,255,255,0.55);
+  text-align: center;
+}
+.test-excluded-line b { color: #4dabff; letter-spacing: 0.08em; }
+
+/* ─── Крафт: прогноз списываемых редкостей ─── */
+.test-recipe-spend {
+  display: block;
+  margin-top: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255,201,77,0.75);
+}
+
+/* ─── Рейд дня ─── */
+.test-raid-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 13px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,201,77,0.4);
+  background:
+    radial-gradient(circle at 15% 30%, rgba(255,201,77,0.14), transparent 60%),
+    rgba(255,255,255,0.03);
+  cursor: pointer;
+  text-align: left;
+  color: #fff;
+  transition: border-color .2s, transform .15s;
+}
+.test-raid-banner:active { transform: scale(0.985); }
+.test-raid-banner--done { border-color: rgba(88,232,154,0.35); opacity: 0.85; }
+.test-raid-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.test-raid-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #ffc94d;
+}
+.test-raid-banner--done .test-raid-title { color: #58e89a; }
+.test-raid-sub { font-size: 11px; color: rgba(255,255,255,0.55); line-height: 1.35; }
+.test-raid-cta {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(255,201,77,0.15);
+  border: 1px solid rgba(255,201,77,0.45);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #ffc94d;
+}
+.test-raid-banner--done .test-raid-cta {
+  background: rgba(88,232,154,0.12);
+  border-color: rgba(88,232,154,0.4);
+  color: #58e89a;
+}

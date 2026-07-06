@@ -1,0 +1,181 @@
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes pulse-danger {
+  from { opacity: 1; }
+  to   { opacity: 0.3; }
+}
+
+@keyframes shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-9px); }
+  40%  { transform: translateX(9px); }
+  60%  { transform: translateX(-5px); }
+  80%  { transform: translateX(5px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes slide-in-left {
+  from { transform: translateX(-16px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes cell-lock-in {
+  0%   { transform: scale(1);    }
+  40%  { transform: scale(1.13); }
+  70%  { transform: scale(0.97); }
+  100% { transform: scale(1);    }
+}
+
+@keyframes locked-breathe {
+  0%, 100% { box-shadow: 0 0 10px rgba(88,232,154,0.25); }
+  50%       { box-shadow: 0 0 22px rgba(88,232,154,0.5); }
+}
+
+@keyframes hardcore-appear {
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.85); }
+  12%  { opacity: 1; transform: translate(-50%,-50%) scale(1.03); }
+  22%  { transform: translate(-50%,-50%) scale(1); }
+  78%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes overlay-appear {
+  from { transform: scale(0.88) translateY(18px); opacity: 0; }
+  to   { transform: scale(1) translateY(0);       opacity: 1; }
+}
+
+@keyframes stream-combo-mega {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.4) rotate(-3deg); }
+  60%  { transform: scale(1.2) rotate(2deg); }
+  100% { transform: scale(1); }
+}
+
+@keyframes combo-flash {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes combo-pts-rise {
+  0%   { transform: translateY(0);    opacity: 1; }
+  70%  { transform: translateY(-28px); opacity: 1; }
+  100% { transform: translateY(-40px); opacity: 0; }
+}
+
+@keyframes level-number-change {
+  0%   { transform: translateY(0);     opacity: 1; }
+  38%  { transform: translateY(-12px); opacity: 0; }
+  62%  { transform: translateY(12px);  opacity: 0; }
+  100% { transform: translateY(0);     opacity: 1; }
+}
+
+.level-changing { animation: level-number-change 0.55s ease forwards; }
+
+@keyframes glitch-r {
+  0%, 88%, 100% { opacity: 0; transform: none; }
+  90% { opacity: 0.3; transform: translate(-4px, 1px); }
+  92% { opacity: 0; }
+  94% { opacity: 0.22; transform: translate(3px, -1px); }
+  96% { opacity: 0; }
+}
+
+@keyframes glitch-b {
+  0%, 88%, 100% { opacity: 0; transform: none; }
+  91% { opacity: 0.25; transform: translate(4px, 1px); }
+  93% { opacity: 0; }
+  95% { opacity: 0.18; transform: translate(-3px, 0); }
+  97% { opacity: 0; }
+}
+
+@keyframes glitch-flicker {
+  0%, 85%, 100% { opacity: 1; }
+  86%  { opacity: 0.3; }
+  87%  { opacity: 1; }
+  88%  { opacity: 0.5; }
+}
+
+.glitch-cell:not(.frozen) {
+  animation: glitch-flicker 0.25s linear infinite;
+}
+
+@keyframes btn-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+  50%       { box-shadow: 0 0 28px rgba(255,255,255,0.18), 0 0 6px rgba(255,255,255,0.08); }
+}
+
+.btn--primary { animation: btn-glow-pulse 3s ease-in-out infinite; }
+
+/* ═══════════ FRACTAL DESCENT ═══════════ */
+@keyframes fractal-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(88,232,154,0.15), 0 0 12px rgba(88,232,154,0.08); }
+  50%       { box-shadow: 0 0 0 1px rgba(88,232,154,0.35), 0 0 22px rgba(88,232,154,0.18); }
+}
+
+@keyframes fractal-stage-flash {
+  0%   { opacity: 1; transform: scale(1); }
+  30%  { opacity: 0.6; transform: scale(0.97); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.level-card.fractal-mode {
+  animation: fractal-pulse 2s ease-in-out infinite;
+}
+
+.level-card.fractal-mode.stage-transition {
+  animation: fractal-stage-flash 0.6s ease-out forwards;
+}
+
+/* ═══════════ VOID & SIGNAL ═══════════ */
+@keyframes void-signal-appear {
+  from { opacity: 0.3; filter: blur(8px); }
+  to   { opacity: 0.08; filter: blur(0px); }
+}
+
+@keyframes void-signal-flicker {
+  0%, 100% { opacity: 0.08; }
+  10%      { opacity: 0.06; }
+  20%      { opacity: 0.1; }
+  50%      { opacity: 0.05; }
+  75%      { opacity: 0.12; }
+}
+
+.level-card.void-mode {
+  background: #0a0a0a;
+}
+
+.level-card.void-mode #input-cells {
+  opacity: 0.08;
+  animation: void-signal-flicker 4s ease-in-out infinite;
+}
+
+.level-card.void-mode .input-cell {
+  border: 1px solid #1a1a1a;
+  color: #333333;
+  font-weight: 400;
+}
+
+.void-signal-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: #444444;
+  text-align: center;
+  letter-spacing: 0.05em;
+  padding: 16px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  text-shadow: 0 0 2px rgba(255,255,255,0.05);
+}
+
+.void-signal-value {
+  display: block;
+  margin-top: 8px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #555555;
+}

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>ДЕКОДЕР — экран загрузки (концепт v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+<style>
+  /* ===================================================================
+     ДЕКОДЕР — концепт экрана загрузки v2
+     Идея: система «играет сама в себя» — на загрузке подбирается пароль
+     по правилам Быков и Коров, с теми же ячейками, подсветкой и
+     историей попыток, что и в самой игре (стили из css/game.css).
+     =================================================================== */
+  :root {
+    --bg:            #000000;
+    --border:        rgba(255,255,255,0.08);
+    --border-bright: rgba(255,255,255,0.18);
+    --txt:           #ffffff;
+    --txt-dim:       rgba(255,255,255,0.35);
+    --txt-faint:     rgba(255,255,255,0.18);
+    --c-standard:    #10b981;                 /* бык */
+    --c-bonus:       #fbbf24;                 /* корова */
+    --bull-b:  rgba(88,232,154,0.6);
+    --bull-bg: rgba(88,232,154,0.10);
+    --cow-b:   rgba(255,201,77,0.6);
+    --cow-bg:  rgba(255,201,77,0.08);
+    --r-md:          20px;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Outfit', system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  body {
+    background: var(--bg);
+    color: var(--txt);
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ========================== ФОН ==================================== */
+  /* Сетка */
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    /* сетка видна по краям, в центре растворяется, чтобы не мешать контенту */
+    mask-image: radial-gradient(ellipse 60% 52% at 50% 45%, transparent 42%, #000 78%);
+    -webkit-mask-image: radial-gradient(ellipse 60% 52% at 50% 45%, transparent 42%, #000 78%);
+  }
+
+  /* Мягкое дыхание света за центром композиции */
+  .glow-bg {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 55% 42% at 50% 44%, rgba(16,185,129,0.06), transparent 70%);
+    animation: glow-breathe 6s ease-in-out infinite;
+  }
+  @keyframes glow-breathe { 50% { opacity: 0.45; } }
+
+  /* Колонны падающих цифр (генерируются в JS), очень деликатные */
+  .rain {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* дождь не заходит в центр — главные элементы остаются контрастными */
+    mask-image: radial-gradient(ellipse 58% 50% at 50% 45%, transparent 45%, #000 80%);
+    -webkit-mask-image: radial-gradient(ellipse 58% 50% at 50% 45%, transparent 45%, #000 80%);
+  }
+  .rain-col {
+    position: absolute;
+    top: -60%;
+    font-size: 13px;
+    line-height: 1.9;
+    color: rgba(255,255,255,0.13);
+    text-shadow: 0 0 6px rgba(255,255,255,0.08);
+    white-space: pre;
+    animation: rain-fall linear infinite;
+    text-align: center;
+  }
+  .rain-col b { color: rgba(16,185,129,0.45); font-weight: 400; text-shadow: 0 0 8px rgba(16,185,129,0.35); }
+  @keyframes rain-fall {
+    from { transform: translateY(0); }
+    to   { transform: translateY(120vh); }
+  }
+
+  /* Сканирующая линия */
+  .scanline {
+    position: fixed;
+    left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+    box-shadow: 0 0 14px rgba(255,255,255,0.10);
+    animation: scan 7s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes scan {
+    0%   { top: -5%; opacity: 0; }
+    8%   { opacity: 1; }
+    92%  { opacity: 1; }
+    100% { top: 105%; opacity: 0; }
+  }
+
+  /* ===================== ЦЕНТРАЛЬНАЯ КОМПОЗИЦИЯ ====================== */
+  .stage {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+    padding: 24px;
+    width: min(92vw, 420px);
+  }
+
+  .wordmark {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: clamp(24px, 7vw, 34px);
+    letter-spacing: 0.22em;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    animation: rise 0.9s cubic-bezier(0.4,0,0.2,1) both;
+  }
+  .wordmark .bracket { font-family: var(--mono); font-weight: 300; color: var(--txt-faint); letter-spacing: 0; }
+  .wordmark .text {
+    background: linear-gradient(180deg, #fff 55%, rgba(255,255,255,0.55));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .tagline {
+    font-size: 10px;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+    margin-top: -18px;
+    animation: rise 0.9s 0.15s cubic-bezier(0.4,0,0.2,1) both;
+  }
+
+  /* --- Ячейки ввода: 1-в-1 как .input-cell в игре -------------------- */
+  .cells {
+    display: flex;
+    gap: 10px;
+    animation: rise 0.9s 0.25s cubic-bezier(0.4,0,0.2,1) both;
+  }
+  .cell {
+    width: 56px;
+    height: 66px;
+    background: rgba(0,0,0,0.15);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-bottom-color: rgba(255,255,255,0.25);
+    border-radius: var(--r-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    position: relative;
+    box-shadow: inset 0 4px 12px rgba(0,0,0,0.5);
+    transition: border-color 150ms cubic-bezier(0.4,0,0.2,1),
+                box-shadow  150ms cubic-bezier(0.4,0,0.2,1),
+                background  150ms cubic-bezier(0.4,0,0.2,1);
+  }
+  .cell-label {
+    position: absolute;
+    top: 5px;
+    left: 8px;
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.05em;
+  }
+  /* активная ячейка — как :focus-within в игре */
+  .cell.active {
+    border-color: rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.06);
+    box-shadow: inset 0 4px 12px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,255,255,0.05);
+  }
+  .cell.has-value { border-color: rgba(255,255,255,0.22); }
+  /* результаты попытки — те же классы и цвета, что в игре */
+  .cell.bull { border-color: var(--bull-b); background: var(--bull-bg); }
+  .cell.cow  { border-color: var(--cow-b);  background: var(--cow-bg); }
+  .cell.miss { border-color: rgba(255,255,255,0.06); background: rgba(255,255,255,0.01); color: rgba(255,255,255,0.2); }
+  .cell.pop  { animation: cell-lock-in 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+  @keyframes cell-lock-in {
+    0%   { transform: scale(1);    }
+    40%  { transform: scale(1.13); }
+    70%  { transform: scale(0.97); }
+    100% { transform: scale(1);    }
+  }
+
+  /* --- История попыток: как .history-row в игре ----------------------- */
+  .history {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 108px;
+    justify-content: flex-end;
+  }
+  .history-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: var(--r-md);
+    padding: 8px 12px;
+    animation: slide-in-left 0.25s ease;
+  }
+  @keyframes slide-in-left {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .history-num { font-size: 10px; color: rgba(255,255,255,0.18); width: 18px; flex-shrink: 0; }
+  .history-cells { display: flex; gap: 4px; }
+  .history-cell {
+    width: 28px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    border: 1px solid transparent;
+  }
+  .history-cell.bull { background: rgba(88,232,154,0.1);  border-color: rgba(88,232,154,0.3);  color: var(--c-standard); }
+  .history-cell.cow  { background: rgba(255,201,77,0.1);  border-color: rgba(255,201,77,0.3);  color: var(--c-bonus); }
+  .history-cell.miss { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.06); color: rgba(255,255,255,0.22); }
+  .history-info { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+  .history-bulls { font-size: 11px; color: var(--c-standard); font-weight: 700; }
+  .history-cows  { font-size: 11px; color: var(--c-bonus); }
+
+  /* --- Прогресс + статус ---------------------------------------------- */
+  .progress {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: rise 0.9s 0.35s cubic-bezier(0.4,0,0.2,1) both;
+  }
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--txt-dim);
+  }
+  .progress-meta .pct { color: var(--txt); font-weight: 700; }
+  .progress-track { height: 2px; border-radius: 2px; background: rgba(255,255,255,0.07); overflow: hidden; }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.55), #ffffff);
+    box-shadow: 0 0 12px rgba(255,255,255,0.35);
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  .term {
+    font-size: 10.5px;
+    color: var(--txt-faint);
+    letter-spacing: 0.06em;
+    min-height: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .term .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--c-standard);
+    box-shadow: 0 0 8px rgba(16,185,129,0.7);
+    animation: pulse 1.6s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  .term .caret {
+    display: inline-block;
+    width: 6px; height: 12px;
+    background: var(--txt-faint);
+    animation: blink 0.9s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scanline, .rain, .glow-bg { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="glow-bg"></div>
+  <div class="rain" id="rain"></div>
+  <div class="scanline"></div>
+
+  <main class="stage">
+    <div class="wordmark">
+      <span class="bracket">[</span><span class="text">ДЕКОДЕР</span><span class="bracket">]</span>
+    </div>
+    <div class="tagline">Система подбора паролей</div>
+
+    <!-- Ячейки ввода — как в игре -->
+    <div class="cells" id="cells"></div>
+
+    <!-- История попыток — как в игре -->
+    <div class="history" id="history"></div>
+
+    <div class="progress">
+      <div class="progress-meta">
+        <span id="status-word">Инициализация</span>
+        <span class="pct" id="pct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="fill"></div></div>
+      <div class="term">
+        <span class="dot"></span>
+        <span id="term-text">boot: подключение к ядру…</span>
+        <span class="caret"></span>
+      </div>
+    </div>
+  </main>
+
+<script>
+(function () {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- фон: колонны падающих цифр ---------- */
+  (function buildRain() {
+    if (reduceMotion) return;
+    const rain = document.getElementById('rain');
+    const cols = Math.min(20, Math.max(6, Math.floor(window.innerWidth / 70)));
+    for (let i = 0; i < cols; i++) {
+      const col = document.createElement('div');
+      col.className = 'rain-col';
+      let html = '';
+      for (let j = 0; j < 30; j++) {
+        const d = Math.floor(Math.random() * 10);
+        // изредка подсвечиваем цифру зелёным
+        html += (Math.random() < 0.18 ? '<b>' + d + '</b>' : d) + '\n';
+      }
+      col.innerHTML = html;
+      col.style.left = ((i + 0.5) / cols * 100) + '%';
+      col.style.animationDuration = (14 + Math.random() * 18) + 's';
+      col.style.animationDelay = (-Math.random() * 30) + 's';
+      col.style.fontSize = (11 + Math.random() * 5) + 'px';
+      col.style.opacity = 0.6 + Math.random() * 0.4; // лёгкая глубина
+      rain.appendChild(col);
+    }
+  })();
+
+  /* ---------- ячейки ввода ---------- */
+  const N = 4;
+  const cellsWrap = document.getElementById('cells');
+  const cells = [];
+  for (let i = 0; i < N; i++) {
+    const c = document.createElement('div');
+    c.className = 'cell';
+    c.innerHTML = '<span class="cell-label">' + (i + 1) + '</span><span class="cell-value"></span>';
+    cellsWrap.appendChild(c);
+    cells.push(c);
+  }
+  const cellValue = c => c.querySelector('.cell-value');
+
+  const historyWrap = document.getElementById('history');
+  const fill = document.getElementById('fill');
+  const pct = document.getElementById('pct');
+  const statusWord = document.getElementById('status-word');
+  const termText = document.getElementById('term-text');
+
+  const sleep = ms => new Promise(r => setTimeout(r, reduceMotion ? Math.min(ms, 60) : ms));
+  const rand = n => Math.floor(Math.random() * n);
+
+  /* ---------- Быки и Коровы: честный расчёт результата ---------- */
+  function judge(guess, target) {
+    return guess.map((d, i) => {
+      if (d === target[i]) return 'bull';
+      if (target.includes(d)) return 'cow';
+      return 'miss';
+    });
+  }
+  function counts(res) {
+    return {
+      bulls: res.filter(r => r === 'bull').length,
+      cows:  res.filter(r => r === 'cow').length,
+    };
+  }
+
+  // Пароль из 4 разных цифр — как в игре
+  function makeTarget() {
+    const pool = [0,1,2,3,4,5,6,7,8,9];
+    const t = [];
+    for (let i = 0; i < N; i++) t.push(pool.splice(rand(pool.length), 1)[0]);
+    return t;
+  }
+
+  // Сценарий из 3 попыток: промах -> тепло -> взлом (последняя = пароль)
+  function makeGuesses(target) {
+    const notIn = [];
+    for (let d = 0; d <= 9; d++) if (!target.includes(d)) notIn.push(d);
+    // 1: все мимо (насколько возможно)
+    const g1 = notIn.slice(0, N);
+    while (g1.length < N) g1.push(rand(10));
+    // 2: две цифры пароля (одна на месте, одна не на месте) + два промаха
+    const g2 = g1.slice();
+    g2[0] = target[0];                       // бык
+    g2[1] = target[2];                       // корова
+    // 3: сам пароль
+    return [g1, g2, target.slice()];
+  }
+
+  /* ---------- прогресс/статус ---------- */
+  function setProgress(p, word, term) {
+    fill.style.width = p + '%';
+    pct.textContent = Math.floor(p) + '%';
+    if (word) statusWord.textContent = word;
+    if (term) termText.textContent = term;
+  }
+
+  /* ---------- один «ход» системы ---------- */
+  async function playAttempt(num, guess, target, baseProgress) {
+    // набор цифр по одной, с подсветкой активной ячейки — как ввод в игре
+    for (let i = 0; i < N; i++) {
+      cells[i].classList.add('active');
+      await sleep(160 + rand(120));
+      // короткий перебор цифр перед «нажатием»
+      for (let k = 0; k < 3; k++) {
+        cellValue(cells[i]).textContent = rand(10);
+        await sleep(45);
+      }
+      cellValue(cells[i]).textContent = guess[i];
+      cells[i].classList.remove('active');
+      cells[i].classList.add('has-value');
+      setProgress(baseProgress + (i + 1) * 3);
+    }
+
+    await sleep(320);
+
+    // проверка: подсветка результата с каскадом — как в игре
+    const res = judge(guess, target);
+    for (let i = 0; i < N; i++) {
+      cells[i].classList.add(res[i], 'pop');
+      await sleep(110);
+    }
+
+    const { bulls, cows } = counts(res);
+    termText.textContent = 'crack: попытка ' + num + ' — быки ' + bulls + ', коровы ' + cows;
+    await sleep(650);
+
+    // перенос попытки в историю — как .history-row в игре
+    const row = document.createElement('div');
+    row.className = 'history-row';
+    row.innerHTML =
+      '<span class="history-num">#' + num + '</span>' +
+      '<div class="history-cells">' +
+        guess.map((d, i) => '<div class="history-cell ' + res[i] + '">' + d + '</div>').join('') +
+      '</div>' +
+      '<div class="history-info">' +
+        '<span class="history-bulls">' + bulls + ' Б</span>' +
+        '<span class="history-cows">' + cows + ' К</span>' +
+      '</div>';
+    historyWrap.appendChild(row);
+
+    // очистка ячеек под следующий ввод
+    if (bulls < N) {
+      cells.forEach(c => {
+        c.classList.remove('bull', 'cow', 'miss', 'pop', 'has-value');
+        cellValue(c).textContent = '';
+      });
+    }
+    return bulls === N;
+  }
+
+  /* ---------- полный цикл загрузки ---------- */
+  async function run() {
+    historyWrap.innerHTML = '';
+    cells.forEach(c => {
+      c.classList.remove('bull', 'cow', 'miss', 'pop', 'has-value', 'active');
+      cellValue(c).textContent = '';
+    });
+
+    setProgress(0, 'Инициализация', 'boot: подключение к ядру…');
+    await sleep(900);
+    setProgress(8, 'Дешифровка', 'scan: перехват потока данных…');
+    await sleep(600);
+
+    const target = makeTarget();
+    const guesses = makeGuesses(target);
+
+    const words = ['Дешифровка', 'Дешифровка', 'Синхронизация'];
+    for (let a = 0; a < guesses.length; a++) {
+      statusWord.textContent = words[a];
+      const cracked = await playAttempt(a + 1, guesses[a], target, 10 + a * 27);
+      setProgress(cracked ? 100 : 10 + (a + 1) * 27);
+      await sleep(400);
+    }
+
+    setProgress(100, 'Готово', 'ok: пароль подобран — доступ разрешён');
+    await sleep(2200);
+    run(); // демо: зациклено
+  }
+
+  run();
+})();
+</script>
+</body>
+</html>

@@ -11,7 +11,7 @@
   // Supabase (инструкция — ПРОКСИ_РФ_настройка.md в корне проекта).
   // Впишите сюда адрес прокси, например 'https://api.mygame.ru'.
   // Пустая строка = прокси отключён, работаем только напрямую.
-  const SUPABASE_PROXY_URL = ''; // TODO: укажите URL своего прокси
+  const SUPABASE_PROXY_URL = 'https://d5duslqlk3td3o7kb850.nkhmighe.apigw.yandexcloud.net'; // Yandex API Gateway
 
   let dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
